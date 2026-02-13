@@ -1,6 +1,8 @@
 ### Read training data
 #! Perhaps you need to set the working directory!?
 #setwd("/home/pbac/g/course02417/2025/assignment1")
+
+setwd("/Users/victorstege/Documents/GitHub/Time-Series-Analysis/Assignment1")
 D <- read.csv("DST_BIL54.csv")
 str(D)
 
