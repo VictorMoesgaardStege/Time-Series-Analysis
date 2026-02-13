@@ -115,4 +115,60 @@ plot(x_train, y_train,
 lines(x_grid, y_grid, lwd = 2)
 
 # forecast points
-points(x_test, forecast_tbl$y_pred, pch = 17_
+points(x_test, forecast_tbl$y_pred, pch = 17)
+
+# prediction interval "band" for test points (as vertical segments)
+segments(x0 = x_test, y0 = forecast_tbl$pi_lower,
+         x1 = x_test, y1 = forecast_tbl$pi_upper)
+
+# optional: connect forecast means
+ord2 <- order(x_test)
+lines(x_test[ord2], forecast_tbl$y_pred[ord2])
+
+legend("topleft",
+       legend = c("Training obs", "Fitted mean", "Forecast mean (2024)", "95% PI (2024)"),
+       pch = c(16, NA, 17, NA),
+       lty = c(NA, 1, 1, NA),
+       bty = "n")
+dev.off()
+
+# ---------- 3.6 Residual diagnostics ----------
+e <- resid(fit)
+
+# Residuals vs fitted
+png(file.path("report", "figures", "03_resid_vs_fitted.png"), width = 1200, height = 700, res = 150)
+plot(fitted(fit), e,
+     pch = 16,
+     xlab = "Fitted values",
+     ylab = "Residuals",
+     main = "Residuals vs fitted")
+abline(h = 0)
+dev.off()
+
+# Histogram
+png(file.path("report", "figures", "03_resid_hist.png"), width = 1200, height = 700, res = 150)
+hist(e, main = "Residual histogram", xlab = "Residuals")
+dev.off()
+
+# QQ plot
+png(file.path("report", "figures", "03_resid_qq.png"), width = 1200, height = 700, res = 150)
+qqnorm(e, main = "Normal Q-Q plot of residuals")
+qqline(e)
+dev.off()
+
+# ACF of residuals
+png(file.path("report", "figures", "03_resid_acf.png"), width = 1200, height = 700, res = 150)
+acf(e, main = "ACF of residuals")
+dev.off()
+
+# Ljung-Box test for autocorrelation (choose a lag; 12 is common for monthly)
+lb <- Box.test(e, lag = 12, type = "Ljung-Box")
+cat("\nLjung-Box test (lag 12):\n")
+print(lb)
+
+# Shapiro-Wilk normality test (note: can be sensitive)
+sh <- shapiro.test(e)
+cat("\nShapiro-Wilk test:\n")
+print(sh)
+
+cat("\nResidual SD (training):", sd(e), "\n")
