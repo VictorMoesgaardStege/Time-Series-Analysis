@@ -172,3 +172,4 @@ cat("\nShapiro-Wilk test:\n")
 print(sh)
 
 cat("\nResidual SD (training):", sd(e), "\n")
+
