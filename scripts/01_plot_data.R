@@ -30,7 +30,7 @@ png(filename = file.path("report", "figures", "01_training_vs_x.png"),
 plot(
   x, Dtrain$total,
   pch = 16,
-  xlab = "x (year + month/12)",
+  xlab = "x (Year)",
   ylab = "Total vehicles (millions)",
   main = "Training data: total vehicles vs x"
 )
@@ -42,7 +42,7 @@ dev.off()
 plot(
   x, Dtrain$total,
   pch = 16,
-  xlab = "x (year + month/12)",
+  xlab = "Year",
   ylab = "Total vehicles (millions)",
   main = "Training data: total vehicles vs x"
 )
@@ -91,3 +91,8 @@ cat("N    :", nrow(Dtrain), "\n")
 
 cat("\nTotal vehicles (millions) summary (training):\n")
 print(summary(Dtrain$total))
+
+
+
+
+
