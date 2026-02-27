@@ -224,26 +224,36 @@ x_all <- c(x_train, x_test)
 y_all <- c(y_train, y_test)
 plot(x_train, y_train,
      pch = 16,
-     xlab = "x (year + month/12)",
+     xlab = "year",
      ylab = "Total vehicles (millions)",
      main = sprintf("Forecast comparison for 2024: OLS vs WLS (λ = %.2f)", lambda),
-     xlim = range(x_all),
-     ylim = (range(y_all)) + 0.12)
+     xlim = range(x_all, na.rm = TRUE),
+     ylim = range(y_all, na.rm = TRUE) + c(-0.12, 0.12))
+
+# Define colors
+col_ols <- "blue"
+col_wls <- "red"
 
 # OLS forecast means + PI
-points(x_test, forecast_tbl$ols_pred, pch = 17)
+points(x_test, forecast_tbl$ols_pred, pch = 17, col = col_ols)
 segments(x0 = x_test, y0 = forecast_tbl$ols_pi_lower,
-         x1 = x_test, y1 = forecast_tbl$ols_pi_upper)
+         x1 = x_test, y1 = forecast_tbl$ols_pi_upper,
+         col = col_ols)
 
 # WLS forecast means + PI
-points(x_test, forecast_tbl$wls_pred, pch = 15)
+points(x_test, forecast_tbl$wls_pred, pch = 15, col = col_wls)
 segments(x0 = x_test, y0 = forecast_tbl$wls_pi_lower,
-         x1 = x_test, y1 = forecast_tbl$wls_pi_upper)
-
+         x1 = x_test, y1 = forecast_tbl$wls_pi_upper,
+         col = col_wls)
 legend("topleft",
-       legend = c("Training obs", "OLS forecast mean", "OLS 95% PI", "WLS forecast mean", "WLS 95% PI"),
+       legend = c("Training obs",
+                  "OLS forecast mean",
+                  "OLS 95% PI",
+                  "WLS forecast mean",
+                  "WLS 95% PI"),
        pch = c(16, 17, NA, 15, NA),
        lty = c(NA, NA, 1, NA, 1),
+       col = c("black", col_ols, col_ols, col_wls, col_wls),
        bty = "n")
 grid()
 dev.off()
