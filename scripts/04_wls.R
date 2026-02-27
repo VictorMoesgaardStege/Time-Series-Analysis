@@ -107,19 +107,41 @@ write.csv(Sigma_snip,
           row.names = FALSE)
 
 # ---------- 4.2: Plot weights vs time ----------
-png(file.path("report", "figures", sprintf("04_wls_weights_lambda_%s.png", lambda)),
+
+# Note: we can plot weights w_t vs time (calendar time) or vs index t in training set.
+
+# png(file.path("report", "figures", sprintf("04_wls_weights_lambda_%s.png", lambda)),
+#     width = 1200, height = 700, res = 150)
+
+# t_idx <- 1:N
+# plot(t_idx, wls$w, type = "l", lwd = 2,
+#      xlab = "t (index in training set)",
+#      ylab = "Weight w_t = λ^(N-t)",
+#      main = sprintf("WLS local weights vs time (λ = %.2f)", lambda))
+# points(t_idx, wls$w, pch = 16)
+# grid()
+# dev.off()
+
+# cat("\nHighest weight is at latest training timepoint t = N (", format(Dtrain$time[N], "%Y-%m"), ")\n", sep="")
+
+# ---------- 4.2: Plot weights vs time (calendar time) ----------
+png(file.path("report", "figures", 
+              sprintf("04_wls_weights_lambda_%s.png", lambda)),
     width = 1200, height = 700, res = 150)
 
-t_idx <- 1:N
-plot(t_idx, wls$w, type = "l", lwd = 2,
-     xlab = "t (index in training set)",
-     ylab = "Weight w_t = λ^(N-t)",
-     main = sprintf("WLS local weights vs time (λ = %.2f)", lambda))
-points(t_idx, wls$w, pch = 16)
+plot(Dtrain$time, wls$w,
+     type = "l",
+     lwd = 2,
+     xlab = "Time",
+     ylab = expression(w[t] == lambda^(N - t)),
+     main = sprintf("WLS local weights over time (λ = %.2f)", lambda))
+
+points(Dtrain$time, wls$w, pch = 16)
 grid()
 dev.off()
 
-cat("\nHighest weight is at latest training timepoint t = N (", format(Dtrain$time[N], "%Y-%m"), ")\n", sep="")
+cat("\nHighest weight is at latest training observation:",
+    format(Dtrain$time[N], "%Y-%m"), "\n")
 
 # ---------- 4.3: Sum of weights ----------
 sum_w <- sum(wls$w)
