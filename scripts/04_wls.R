@@ -169,7 +169,7 @@ write.csv(param_tbl,
           file = file.path("output", "tables", sprintf("04_wls_params_lambda_%s.csv", lambda)),
           row.names = FALSE)
 
-# Also save a "fit on training" plot (like 3.2)
+# Also save a "fit on training"
 png(file.path("report", "figures", sprintf("04_wls_fit_train_lambda_%s.png", lambda)),
     width = 1200, height = 700, res = 150)
 
@@ -218,15 +218,17 @@ cat("\nSaved forecast table to:",
 
 # Plot training obs + OLS and WLS predictions for test (with PI segments)
 png(file.path("report", "figures", sprintf("04_ols_vs_wls_forecast_lambda_%s.png", lambda)),
-    width = 1200, height = 700, res = 150)
+    width = 1200, height = 800, res = 150)
 
 x_all <- c(x_train, x_test)
+y_all <- c(y_train, y_test)
 plot(x_train, y_train,
      pch = 16,
      xlab = "x (year + month/12)",
      ylab = "Total vehicles (millions)",
      main = sprintf("Forecast comparison for 2024: OLS vs WLS (λ = %.2f)", lambda),
-     xlim = range(x_all))
+     xlim = range(x_all),
+     ylim = (range(y_all)) + 0.12)
 
 # OLS forecast means + PI
 points(x_test, forecast_tbl$ols_pred, pch = 17)
