@@ -39,7 +39,7 @@ fit_wls_local <- function(x_train, y_train, lambda) {
   # Local variance-cov matrix Σ is diagonal.
   # We choose Σ_ii = 1 / lambda^(N - i)  =>  W = Σ^{-1} has diag weights = lambda^(N - i)
   w <- lambda^(N - (1:N))  # i=N => lambda^0 = 1 (highest at latest timepoint)
-  W <- diag(w)
+  W <- diag(w) # W = Σ^{-1} is diagonal with entries w_i
 
   XtWX <- t(X) %*% W %*% X # X' W X
   XtWy <- t(X) %*% W %*% y # X' W y
@@ -52,8 +52,8 @@ fit_wls_local <- function(x_train, y_train, lambda) {
   sigma2_hat <- as.numeric(t(e) %*% W %*% e) / (N - p) # computes e' W e / (N - p)
   sigma_hat  <- sqrt(sigma2_hat) # weighted residual standard error
 
-  Vtheta <- sigma2_hat * solve(XtWX)
-  se_theta <- sqrt(diag(Vtheta))
+  Vtheta <- sigma2_hat * solve(XtWX) # Var(theta_hat) = sigma^2 * (X' W X)^{-1}
+  se_theta <- sqrt(diag(Vtheta)) # standard errors for theta_hat
 
   list(
     lambda = lambda,
