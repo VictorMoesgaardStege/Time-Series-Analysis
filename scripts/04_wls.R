@@ -41,16 +41,16 @@ fit_wls_local <- function(x_train, y_train, lambda) {
   w <- lambda^(N - (1:N))  # i=N => lambda^0 = 1 (highest at latest timepoint)
   W <- diag(w)
 
-  XtWX <- t(X) %*% W %*% X
-  XtWy <- t(X) %*% W %*% y
+  XtWX <- t(X) %*% W %*% X # X' W X
+  XtWy <- t(X) %*% W %*% y # X' W y
 
-  theta_hat <- solve(XtWX) %*% XtWy
-  y_hat <- as.numeric(X %*% theta_hat)
-  e <- y_train - y_hat
+  theta_hat <- solve(XtWX) %*% XtWy # (X' W X)^{-1} X' W y
+  y_hat <- as.numeric(X %*% theta_hat) # fitted values on training set. Computes X theta_hat
+  e <- y_train - y_hat # residuals on training set
 
   # Weighted sigma^2 estimate (common pragmatic choice)
-  sigma2_hat <- as.numeric(t(e) %*% W %*% e) / (N - p)
-  sigma_hat  <- sqrt(sigma2_hat)
+  sigma2_hat <- as.numeric(t(e) %*% W %*% e) / (N - p) # computes e' W e / (N - p)
+  sigma_hat  <- sqrt(sigma2_hat) # weighted residual standard error
 
   Vtheta <- sigma2_hat * solve(XtWX)
   se_theta <- sqrt(diag(Vtheta))
