@@ -27,3 +27,4 @@ load_bil54 <- function(file = NULL, teststart = "2024-01-01", tz = "UTC") {
 
   list(D = D, train = Dtrain, test = Dtest)
 }
+

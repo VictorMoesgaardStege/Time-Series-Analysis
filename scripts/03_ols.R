@@ -21,6 +21,9 @@ y_train <- Dtrain$total
 x_test <- make_x(Dtest$time)
 y_test <- Dtest$total  # not used for fitting, but useful later
 
+
+
+
 # ---------- OLS via matrix formula ----------
 # Model: y = X theta + e, X = [1, x]
 X <- cbind(1, x_train)
@@ -63,7 +66,7 @@ dir.create(file.path("report", "figures"), recursive = TRUE, showWarnings = FALS
 png(file.path("report", "figures", "03_ols_fit_train.png"), width = 1200, height = 700, res = 150)
 plot(x_train, y_train,
      pch = 16,
-     xlab = "x (year + month/12)",
+     xlab = "(Year)",
      ylab = "Total vehicles (millions)",
      main = "OLS fit on training set: observations and estimated mean")
 # Sort by x to draw a nice line
@@ -77,15 +80,18 @@ pred <- predict(fit,
                 newdata = data.frame(x = x_test),
                 interval = "prediction",
                 level = 0.95)
-
-# pred is a matrix with columns: fit, lwr, upr
+# ---------- 3.3 Plot forecasts with labels ----------
+# Build forecast table
 forecast_tbl <- data.frame(
-  time = format(Dtest$time, "%Y-%m"),
-  x = x_test,
-  y_pred = pred[, "fit"],
-  pi_lower = pred[, "lwr"],
-  pi_upper = pred[, "upr"]
+  time       = format(Dtest$time, "%Y-%m"),
+  year       = x_test,
+  predicted  = pred[, "fit"],
+  lower_95   = pred[, "lwr"],
+  upper_95   = pred[, "upr"]
 )
+
+
+forecast_tbl[, 3:5] <- round(forecast_tbl[, 3:5], 4)
 
 # Save table
 write.csv(forecast_tbl,
@@ -93,8 +99,115 @@ write.csv(forecast_tbl,
           row.names = FALSE)
 
 cat("\nSaved forecast table to output/tables/03_ols_forecast_2024.csv\n")
-cat("\nForecasts (first rows):\n")
-print(head(forecast_tbl, 12))
+
+# Print first rows nicely
+print(forecast_tbl)
+
+
+png(file.path("report", "figures", "03_ols_forecast_test.png"),
+    width = 1200, height = 700, res = 150)
+
+x_all <- c(x_train, x_test)
+y_all <- c(y_train, pred[, "lwr"], pred[, "upr"])
+
+plot(x_train, y_train,
+     pch = 16,
+     col = "black",
+     xlim = range(x_all),
+     ylim = range(y_all),
+     xlab = "Year",
+     ylab = "Total vehicles (millions)",
+     main = "OLS Forecast with 95% Prediction Interval")
+
+# Training fitted line
+ord_train <- order(x_train)
+lines(x_train[ord_train], y_hat[ord_train],
+      col = "blue", lwd = 2)
+
+# Forecast line
+ord_test <- order(x_test)
+lines(x_test[ord_test], pred[ord_test, "fit"],
+      col = "red", lwd = 2)
+
+# Prediction intervals
+lines(x_test[ord_test], pred[ord_test, "lwr"],
+      col = "red", lty = 2)
+lines(x_test[ord_test], pred[ord_test, "upr"],
+      col = "red", lty = 2)
+
+# Vertical line separating train/test
+abline(v = min(x_test), lty = 3, col = "darkgray")
+
+# Legend
+legend("topleft",
+       legend = c("Observed (training)",
+                  "Fitted mean (training)",
+                  "Forecast (test)",
+                  "95% prediction interval",
+                  "Train/Test split"),
+       col = c("black", "blue", "red", "red", "darkgray"),
+       pch = c(16, NA, NA, NA, NA),
+       lty = c(NA, 1, 1, 2, 3),
+       lwd = c(NA, 2, 2, 1, 1),
+       bty = "n")
+
+dev.off()
+
+
+
+# ---------- 3.3 Plot forecasts + prediction intervals + actual test data ----------
+png(file.path("report", "figures", "03_ols_forecast_test_vs_actual.png"),
+    width = 1200, height = 700, res = 150)
+
+# Ensure ordering for nice lines
+ord_train <- order(x_train)
+ord_test  <- order(x_test)
+
+# Axis ranges must include training, forecast intervals, AND actual test values
+x_all <- c(x_train, x_test)
+y_all <- c(y_train,
+           pred[, "lwr"], pred[, "upr"],
+           y_test)
+
+plot(x_train, y_train,
+     pch = 16,
+     col = "black",
+     xlim = range(x_all),
+     ylim = range(y_all),
+     xlab = "Year",
+     ylab = "Total vehicles (millions)",
+     main = "OLS Forecast vs Actual Test Data (95% Prediction Interval)")
+
+# Training fitted line (estimated mean on training set)
+lines(x_train[ord_train], y_hat[ord_train], col = "blue", lwd = 2)
+
+# Train/Test split marker
+abline(v = min(x_test), lty = 3, col = "darkgray")
+
+# Forecast mean line (test period)
+lines(x_test[ord_test], pred[ord_test, "fit"], col = "red", lwd = 2)
+
+# Prediction interval (test period)
+lines(x_test[ord_test], pred[ord_test, "lwr"], col = "red", lty = 2)
+lines(x_test[ord_test], pred[ord_test, "upr"], col = "red", lty = 2)
+
+# Actual test observations (held out)
+points(x_test, y_test, pch = 17, col = "darkgreen")  # triangle markers
+
+legend("topleft",
+       legend = c("Observed (training)",
+                  "Fitted mean (training)",
+                  "Train/Test split",
+                  "Forecast mean (test)",
+                  "95% prediction interval",
+                  "Actual (test)"),
+       col = c("black", "blue", "darkgray", "red", "red", "darkgreen"),
+       pch = c(16, NA, NA, NA, NA, 17),
+       lty = c(NA, 1, 3, 1, 2, NA),
+       lwd = c(NA, 2, 1, 2, 1, NA),
+       bty = "n")
+
+dev.off()
 
 # ---------- 3.4 Plot fitted model + training data + forecasts + PI ----------
 # For a continuous fitted line over training+test x-range:
@@ -133,7 +246,26 @@ legend("topleft",
 dev.off()
 
 # ---------- 3.6 Residual diagnostics ----------
-e <- resid(fit)
+# ---------- Studentized Residual Plot ----------
+dir.create(file.path("report", "figures"), recursive = TRUE, showWarnings = FALSE)
+
+png(file.path("report", "figures", "03_studentized_residuals.png"),
+    width = 1200, height = 700, res = 150)
+
+stud_res <- rstudent(fit)
+
+plot(x_train, stud_res,
+     type = "b",
+     pch = 16,
+     col = "black",
+     xlab = "Year",
+     ylab = "Studentized Residuals",
+     main = "Studentized Residuals over Time")
+
+abline(h = 0, col = "red")
+abline(h = c(-2, 2), col = "blue", lty = 2)
+
+dev.off()
 
 # Residuals vs fitted
 png(file.path("report", "figures", "03_resid_vs_fitted.png"), width = 1200, height = 700, res = 150)
@@ -172,4 +304,3 @@ cat("\nShapiro-Wilk test:\n")
 print(sh)
 
 cat("\nResidual SD (training):", sd(e), "\n")
-
