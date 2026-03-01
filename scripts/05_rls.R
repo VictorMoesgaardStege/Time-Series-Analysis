@@ -429,3 +429,57 @@ ggplot(rmse_long, aes(x = lambda, y = rmse, group = horizon, color = factor(hori
     y = expression(RMSE[k])
   ) +
   theme_bw()
+lambdas <- seq(0.5, 0.99, by = 0.01)
+
+for (k in 1:12) {
+  valid <- which(lambdas <= 0.9)
+  min_idx <- valid[which.min(rmse_results[k, valid])]
+  cat("k =", k, "| optimal lambda =", lambdas[min_idx], "| RMSE =", round(rmse_results[k, min_idx], 6), "\n")
+}
+
+
+##### Q5.7
+optimal_lambdas <- c(0.50, 0.50, 0.50, 0.55, 0.61, 0.64, 0.66, 0.67, 0.68, 0.68, 0.66, 0.65)
+
+predictions_test <- numeric(12)
+
+for (k in 1:12) {
+  result <- rls_estimation_forgetting_k_horizon(
+    x_data = x_train,
+    y_data = y_train,
+    R0 = diag(0.00000001, 2),
+    theta0 = c(0, 0),
+    lambda = optimal_lambdas[k],
+    max_horizon = k  # only need up to horizon k
+  )
+  
+  # theta at t=N is the last row of theta_history
+  theta_N <- result$theta_history[nrow(result$theta_history), ]
+  predictions_test[k] <- theta_N[1] + theta_N[2] * x_test[k]
+}
+
+ols_pred <- read.csv("output/tables/03_ols_forecast_2024.csv")
+wls_pred <- read.csv("output/tables/04_wls_forecast_2024_lambda_0.9.csv")
+
+str(ols_pred)
+str(wls_pred)
+
+# Plot
+par(mar = c(7, 4, 4, 2))
+plot(x_test, y_test,
+     type = "l", lwd = 2, col = "black",
+     xlab = "Time", ylab = "Total vehicles",
+     main = "5.7 - Test set predictions: OLS vs WLS vs RLS",
+     ylim = range(c(y_test, predictions_test, ols_pred$predicted, wls_pred$wls_pred)))
+points(x_test, predictions_test, col = "purple", pch = 17)
+points(x_test, ols_pred$predicted, col = "blue", pch = 15)
+points(x_test, wls_pred$wls_pred, col = "red", pch = 16)
+par(xpd = TRUE)
+legend("bottom", inset = c(0, -0.35),
+       legend = c("Observed", "RLS optimal λ per k", "OLS", "WLS (λ=0.9)"),
+       col = c("black", "purple", "blue", "red"),
+       pch = c(NA, 17, 15, 16),
+       lwd = c(2, NA, NA, NA),
+       horiz = TRUE, bty = "n", cex = 0.85)
+par(xpd = FALSE)
+grid()
