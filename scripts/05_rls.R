@@ -301,3 +301,131 @@ grid()
 
 print(results_5_4_07$theta_final)
 print(results_5_4_099$theta_final)
+
+##### Q 5.5
+par(mfrow = c(2, 1), mar = c(4, 4, 2, 1))
+burnin <- 4
+pred_plot <- burnin:length(x_train)
+residuals_07 <- results_5_4_07$predictions[pred_plot]-y_train[pred_plot]
+residuals_099 <- results_5_4_099$predictions[pred_plot]-y_train[pred_plot]
+
+plot(pred_plot, results_5_4_099$predictions[pred_plot], 
+     type = "l", col = "red", lwd = 2,
+     xlab = "Time", ylab = "prediction in millions",
+     main = "One-step prediction of both lambda values")
+lines(pred_plot, results_5_4_07$predictions[pred_plot],
+      col = "blue", lwd = 2)
+lines(pred_plot, y_train[pred_plot],
+      col = "black", lwd = 1)
+legend("bottomright", 
+       legend = c("lambda = 0.7", "lambda = 0.99", "y_t"), 
+       col = c("blue", "red", "black"), lwd = 2)
+grid()
+
+plot(pred_plot, residuals_099, 
+     type = "l", col = "red", lwd = 2,
+     xlab = "Time", ylab = "residual in millions",
+     main = "Residuals of both lambda values")
+lines(pred_plot, residuals_07, 
+      col = "blue", lwd = 2)
+legend("bottomright", 
+       legend = c("lambda = 0.7", "lambda = 0.99"), 
+       col = c("blue", "red"), lwd = 2)
+grid()
+abline(h = 0, lty = 2, col = "black", lwd = 1)
+
+##### Q 5.6
+rls_estimation_forgetting_k_horizon <- function(x_data, y_data, R0, theta0, lambda, max_horizon) {
+  n <- length(x_data)
+  
+  R <- R0
+  theta <- theta0
+  
+  theta_history <- matrix(NA, nrow = n, ncol = 2)
+  colnames(theta_history) <- c("theta1_intercept", "theta2_slope")
+  
+  predictions <- numeric(n)
+  fitted_values <- numeric(n)
+  residuals <- numeric(n)
+  
+  horizon_residuals <- matrix(NA, nrow = n, ncol = max_horizon)
+  
+  for (t in 1:n) {
+    X_t <- matrix(c(1, x_data[t]), nrow = 2)
+    Y_t <- y_data[t]
+    
+    predictions[t] <- as.numeric(t(X_t) %*% theta)
+    residuals[t] <- Y_t - predictions[t]
+    
+    R <- lambda * R + X_t %*% t(X_t)
+    theta <- theta + solve(R) %*% X_t %*% residuals[t]
+    
+    theta_history[t, ] <- as.numeric(theta)
+    fitted_values[t] <- as.numeric(t(X_t) %*% theta)
+    
+    for (h in 1:max_horizon) {
+      future_t <- t + h
+      if (future_t > n) break
+      
+      X_future <- matrix(c(1, x_data[future_t]), nrow = 2)
+      y_hat <- as.numeric(t(X_future) %*% theta)
+      horizon_residuals[t, h] <- y_data[future_t] - y_hat
+    }
+  }
+  
+  rmse_k <- numeric(max_horizon)
+  for (h in 1:max_horizon) {
+    burn_in <- 4
+    valid_residuals <- horizon_residuals[(burn_in + 1):(n - h), h]
+    rmse_k[h] <- sqrt(mean(valid_residuals^2, na.rm = TRUE))
+  }
+  
+  return(list(
+    theta_final = as.numeric(theta),
+    theta_history = theta_history,
+    R_final = R,
+    predictions = predictions,
+    fitted_values = fitted_values,
+    residuals = residuals,
+    horizon_residuals = horizon_residuals,
+    rmse_k = rmse_k
+  ))
+}
+
+# Loop - save into matrix
+lambdas <- seq(0.5, 0.99, by = 0.01)
+rmse_results <- matrix(NA, nrow = 12, ncol = length(lambdas))
+
+for (i in seq_along(lambdas)) {
+  result <- rls_estimation_forgetting_k_horizon(
+    x_data = x_train,
+    y_data = y_train,
+    R0 = diag(0.00000001, 2),
+    theta0 = c(0, 0),
+    lambda = lambdas[i],
+    max_horizon = 12
+  )
+  rmse_results[, i] <- result$rmse_k
+}
+
+library(ggplot2)
+library(reshape2)
+
+# Convert matrix to long format
+colnames(rmse_results) <- round(lambdas, 2)
+rownames(rmse_results) <- 1:12
+
+rmse_long <- melt(rmse_results, varnames = c("horizon", "lambda"), value.name = "rmse")
+
+ggplot(rmse_long, aes(x = lambda, y = rmse, group = horizon, color = factor(horizon))) +
+  geom_line(linewidth = 0.8) +
+  scale_color_manual(
+    values = colorRampPalette(c("darkblue", "lightblue"))(12),
+    name = "Horizon (k)"
+  ) +
+  labs(
+    title = "RMSE by lambda and forecast horizon",
+    x = expression(lambda),
+    y = expression(RMSE[k])
+  ) +
+  theme_bw()
