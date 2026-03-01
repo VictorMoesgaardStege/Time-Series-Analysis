@@ -298,3 +298,6 @@ legend("bottomright",
        legend = c("lambda = 0.7", "lambda = 0.99"), 
        col = c("blue", "red"), lwd = 2)
 grid()
+
+print(results_5_4_07$theta_final)
+print(results_5_4_099$theta_final)
