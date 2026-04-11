@@ -1,5 +1,4 @@
 # Assignment 3 - Question 1: Stability
-# Project structure follows README.md:
 #   R/      helper functions
 #   scripts/ runnable scripts
 #   report/figures/ saved plots
