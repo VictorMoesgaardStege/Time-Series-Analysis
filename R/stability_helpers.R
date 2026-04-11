@@ -196,3 +196,4 @@ summarize_case <- function(phi1, phi2, n = 200, n_rep = 5, lag_max = 30,
     theoretical_acf = theo_acf
   )
 }
+
