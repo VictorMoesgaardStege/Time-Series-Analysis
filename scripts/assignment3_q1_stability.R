@@ -1,16 +1,8 @@
 # Assignment 3 - Question 1: Stability
-#   R/      helper functions
-#   scripts/ runnable scripts
-#   report/figures/ saved plots
-#   output/tables/ saved tables
 
 rm(list = ls())
-
 source("R/stability_helpers.R")
 
-# -----------------------------
-# Settings
-# -----------------------------
 seed <- 20260411
 n <- 200
 n_rep <- 5
@@ -23,7 +15,6 @@ cases <- data.frame(
   phi2 = c( 0.5, -0.3, -0.3, -0.3, -0.3)
 )
 
-# Create output folders if needed
 for (dir_path in c("report/figures", "output/tables", "output/models")) {
   if (!dir.exists(dir_path)) dir.create(dir_path, recursive = TRUE)
 }
@@ -31,9 +22,6 @@ for (dir_path in c("report/figures", "output/tables", "output/models")) {
 all_summaries <- vector("list", nrow(cases))
 names(all_summaries) <- cases$question
 
-# -----------------------------
-# Run all cases and save plots
-# -----------------------------
 for (i in seq_len(nrow(cases))) {
   phi1 <- cases$phi1[i]
   phi2 <- cases$phi2[i]
@@ -54,8 +42,8 @@ for (i in seq_len(nrow(cases))) {
   base_name <- paste0(
     "q1_",
     gsub("\\.", "", qlab),
-    "_phi1_", gsub("-", "m", phi1),
-    "_phi2_", gsub("-", "m", phi2)
+    "_phi1_", gsub("-", "m", as.character(phi1)),
+    "_phi2_", gsub("-", "m", as.character(phi2))
   )
 
   plot_simulations(
@@ -73,12 +61,15 @@ for (i in seq_len(nrow(cases))) {
     file = file.path("report/figures", paste0(base_name, "_acf.png"))
   )
 
-  root_tbl <- cbind(
+  root_tbl <- data.frame(
     question = qlab,
     phi1 = phi1,
     phi2 = phi2,
     stationary = res$stationary,
-    res$roots
+    root = res$roots$root,
+    real = res$roots$real,
+    imaginary = res$roots$imaginary,
+    modulus = res$roots$modulus
   )
 
   write.csv(
@@ -88,9 +79,6 @@ for (i in seq_len(nrow(cases))) {
   )
 }
 
-# -----------------------------
-# Combined stationarity summary table
-# -----------------------------
 root_summary <- do.call(
   rbind,
   lapply(seq_along(all_summaries), function(i) {
