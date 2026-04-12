@@ -1,22 +1,56 @@
 # Assignment 3 - Question 3: ARX model for the heating of a box
 #
-# Run this script from the repo root, or open it in RStudio while the working
-# directory is set to the repo root (Session > Set Working Directory > To Project).
-# The script auto-detects its location when opened in RStudio.
+# Open in RStudio from the repo root, or run with working directory = repo root.
+# All figures → report/figures/*.pdf   (include in Overleaf with \includegraphics)
+# All tables  → report/tables/*.tex    (include in Overleaf with \input)
 
 rm(list = ls())
 
 # ---------------------------------------------------------------------------
-# 0. Working directory + output folders
+# 0. Working directory, packages, output folders
 # ---------------------------------------------------------------------------
 if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
-  repo_root <- dirname(dirname(rstudioapi::getActiveDocumentContext()$path))
-  setwd(repo_root)
+  setwd(dirname(dirname(rstudioapi::getActiveDocumentContext()$path)))
 }
 cat("Working directory:", getwd(), "\n")
 
-for (d in c("report/figures", "output/tables", "output/models")) {
+if (!requireNamespace("xtable", quietly = TRUE)) install.packages("xtable")
+library(xtable)
+
+for (d in c("report/figures", "report/tables", "output/tables", "output/models")) {
   if (!dir.exists(d)) dir.create(d, recursive = TRUE)
+}
+
+# ---------------------------------------------------------------------------
+# Plot style — mirrors assignment3_q1_stability / stability_helpers.R
+# ---------------------------------------------------------------------------
+FW   <- 6.2   # one-column Overleaf text width (inches)
+FH_S <- 3.2   # single-row / side-by-side panels
+FH_D <- 4.8   # 2×3 diagnostic grid
+FH_3 <- 7.0   # three stacked panels
+FH_2 <- 4.2   # two stacked panels
+
+COL_OBS  <- "black"
+COL_FIT  <- "red"
+COL_AIC  <- "steelblue"
+COL_BIC  <- "firebrick"
+COL_RMSE <- "darkgreen"
+LWD      <- 2      # default line width throughout
+
+# Results collector — appended throughout; written to markdown at the end
+md <- character(0)
+md_add <- function(...) md <<- c(md, paste0(...))
+
+# Convenience wrapper: save a named coefficient table as a .tex file
+save_coef_tex <- function(fit, file, caption, label) {
+  tbl <- as.data.frame(summary(fit)$coefficients)
+  colnames(tbl) <- c("Estimate", "Std.\\ Error", "$t$-value", "$p$-value")
+  xt <- xtable(tbl, caption = caption, label = label, digits = c(0, 4, 4, 3, 4))
+  print(xt,
+        booktabs               = TRUE,
+        sanitize.text.function = identity,
+        file                   = file,
+        caption.placement      = "top")
 }
 
 # ---------------------------------------------------------------------------
@@ -25,322 +59,418 @@ for (d in c("report/figures", "output/tables", "output/models")) {
 box <- read.csv("data/box_data_60min.csv")
 box$tdate <- as.POSIXct(box$tdate, tz = "UTC")
 
-png("report/figures/q3_31_time_series.png", width = 900, height = 700)
-par(mfrow = c(3, 1), mar = c(2, 4, 2, 1), oma = c(3, 0, 0, 0))
-plot(box$tdate, box$Ph,     type = "l", ylab = "Ph (W)",     xlab = "", main = "Heating power")
-plot(box$tdate, box$Tdelta, type = "l", ylab = "Tdelta (°C)", xlab = "", main = "Temperature difference (inside - outside)")
-plot(box$tdate, box$Gv,     type = "l", ylab = "Gv (W/m²)",  xlab = "", main = "Vertical solar radiation")
-mtext("Time", side = 1, outer = TRUE, line = 1)
+pdf("report/figures/q3_31_time_series.pdf", width = FW, height = FH_3)
+par(mfrow = c(3, 1), mar = c(2, 4.5, 1.8, 1), oma = c(3, 0, 0, 0))
+
+plot(box$tdate, box$Ph, type = "l", lwd = LWD,
+     ylab = expression(P[h]~(W)), xlab = "",
+     main = expression("Heating power  " * P[h]))
+grid()
+
+plot(box$tdate, box$Tdelta, type = "l", lwd = LWD,
+     ylab = expression(T[Delta]~(degree*C)), xlab = "",
+     main = expression("Temperature difference  " * T[Delta]))
+grid()
+
+plot(box$tdate, box$Gv, type = "l", lwd = LWD,
+     ylab = expression(G[v]~(W/m^2)), xlab = "",
+     main = expression("Vertical solar radiation  " * G[v]))
+grid()
+
+mtext("Time", side = 1, outer = TRUE, line = 1.5)
 dev.off()
 
-# Comment (3.1):
-# Ph is ~50-60 W at night and drops when Gv is high (solar gain replaces electrical heating).
-# Tdelta tracks inside-minus-outside temperature; higher when colder outside.
-# Gv spikes during daytime only. Negative Ph-Gv relationship and positive Ph-Tdelta
-# relationship are expected: more radiation or milder outside → less heating needed.
+md_add("# Question 3 Results Summary\n")
+md_add("## 3.1 Time Series")
+md_add("**Figure:** `report/figures/q3_31_time_series.pdf`")
+md_add("**Ph range:** ", round(min(box$Ph),1), " – ", round(max(box$Ph),1), " W")
+md_add("**Tdelta range:** ", round(min(box$Tdelta),1), " – ", round(max(box$Tdelta),1), " °C")
+md_add("**Gv range:** ", round(min(box$Gv),1), " – ", round(max(box$Gv),1), " W/m²")
+md_add("**N total:** ", nrow(box), " hourly observations\n")
 
 # ---------------------------------------------------------------------------
-# 3.2  Train / test split  (thour 1..167 = training, 168..231 = test)
+# 3.2  Train / test split
 # ---------------------------------------------------------------------------
 train <- box[box$thour <= 167, ]
 test  <- box[box$thour >  167, ]
+cat("Training rows:", nrow(train), "| Last:", format(max(train$tdate)), "\n")
+cat("Test rows    :", nrow(test),  "| First:", format(min(test$tdate)), "\n")
 
-cat("Training rows:", nrow(train),
-    "| Last training point:", format(max(train$tdate)), "\n")
-cat("Test rows:", nrow(test),
-    "| First test point:", format(min(test$tdate)), "\n")
+md_add("## 3.2 Train/Test Split")
+md_add("**Training set:** ", nrow(train), " obs, thour 1–167, up to ", format(max(train$tdate)))
+md_add("**Test set:** ", nrow(test), " obs, thour 168–231, from ", format(min(test$tdate)), "\n")
 
 # ---------------------------------------------------------------------------
-# 3.3  Exploratory analysis on training data
+# 3.3  Exploratory analysis (training set)
 # ---------------------------------------------------------------------------
 
-# --- Scatter plots ---------------------------------------------------------
-png("report/figures/q3_33_scatter.png", width = 900, height = 420)
-par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
+# Figure A: scatter plots
+pdf("report/figures/q3_33_scatter.pdf", width = FW, height = FH_S)
+par(mfrow = c(1, 2), mar = c(4.5, 4.5, 2, 1))
+
 plot(train$Tdelta, train$Ph, pch = 16, cex = 0.5,
-     xlab = "Tdelta (°C)", ylab = "Ph (W)", main = "Ph vs Tdelta")
-plot(train$Gv,     train$Ph, pch = 16, cex = 0.5,
-     xlab = "Gv (W/m²)",   ylab = "Ph (W)", main = "Ph vs Gv")
+     xlab = expression(T[Delta]~(degree*C)),
+     ylab = expression(P[h]~(W)),
+     main = expression(P[h]~vs~T[Delta]))
+grid()
+
+plot(train$Gv, train$Ph, pch = 16, cex = 0.5,
+     xlab = expression(G[v]~(W/m^2)),
+     ylab = expression(P[h]~(W)),
+     main = expression(P[h]~vs~G[v]))
+grid()
 dev.off()
 
-# --- ACF / PACF of Ph ------------------------------------------------------
-png("report/figures/q3_33_acf_ph.png", width = 900, height = 420)
-par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
-acf(train$Ph,  lag.max = 24, main = "ACF of Ph")
-pacf(train$Ph, lag.max = 24, main = "PACF of Ph")
+# Figure B: ACF/PACF of Ph and raw CCF (2×2)
+pdf("report/figures/q3_33_acf_ccf.pdf", width = FW, height = FH_D)
+par(mfrow = c(2, 2), mar = c(4, 4.5, 2.2, 1))
+
+acf(train$Ph,  lag.max = 24, main = expression("ACF of  " * P[h]))
+grid()
+pacf(train$Ph, lag.max = 24, main = expression("PACF of  " * P[h]))
+grid()
+ccf(train$Tdelta, train$Ph, lag.max = 24,
+    main = expression("CCF (raw):  " * T[Delta] %->% P[h]), ylab = "CCF")
+grid()
+ccf(train$Gv, train$Ph, lag.max = 24,
+    main = expression("CCF (raw):  " * G[v] %->% P[h]), ylab = "CCF")
+grid()
 dev.off()
 
-# --- Raw CCF: qualitative only (see 3.4 for prewhitened version) -----------
-# NOTE (Textbook §8.7, p.269): Raw CCF is confounded by autocorrelation in the inputs.
-# Use for qualitative direction only; prewhitening (3.4) gives the correct impulse response.
-png("report/figures/q3_33_ccf_raw.png", width = 900, height = 420)
-par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
-ccf(train$Tdelta, train$Ph, lag.max = 24, main = "CCF (raw): Tdelta -> Ph")
-ccf(train$Gv,     train$Ph, lag.max = 24, main = "CCF (raw): Gv -> Ph")
-dev.off()
-
-# Comment (3.3):
-# ACF of Ph decays slowly → strong AR dynamics needed. PACF cuts off after 1-2 lags.
-# Raw CCF: Tdelta → Ph positive and persistent; Gv → Ph strongly negative.
-# Scatter shows approximate linearity for Tdelta; Gv has a floor effect at Gv = 0
-# (night-time). Because both inputs are autocorrelated, the raw CCF is biased — the
-# prewhitened CCF in 3.4 gives the unbiased impulse response estimate.
+md_add("## 3.3 Exploratory Analysis")
+md_add("**Figure A (scatter):** `report/figures/q3_33_scatter.pdf`")
+md_add("**Figure B (ACF/PACF/CCF):** `report/figures/q3_33_acf_ccf.pdf`")
+md_add("**ACF Ph:** slow exponential decay — strong AR dynamics needed")
+md_add("**PACF Ph:** cuts off sharply after lag 1–2 — suggests low-order AR")
+md_add("**Raw CCF Tdelta→Ph:** positive at lag 0, persists several lags")
+md_add("**Raw CCF Gv→Ph:** strongly negative at lag 0 (solar gain replaces heating)")
+md_add("**Note:** raw CCF is biased when input is autocorrelated — see prewhitened version in 3.4\n")
 
 # ---------------------------------------------------------------------------
 # 3.4  Impulse response via prewhitening (Textbook §8.7, p.269)
 # ---------------------------------------------------------------------------
 max_lag_ir <- 10
 
-# Helper: apply an AR filter (ar_fit object) to a series x
 apply_ar_filter <- function(x, ar_fit) {
   p <- ar_fit$order
-  if (p == 0) return(x)                 # AR(0) = identity filter
-  n <- length(x)
+  if (p == 0L) return(x)
+  n   <- length(x)
   out <- x[(p + 1):n]
-  for (k in seq_len(p)) {
-    out <- out - ar_fit$ar[k] * x[(p + 1 - k):(n - k)]
-  }
+  for (k in seq_len(p)) out <- out - ar_fit$ar[k] * x[(p + 1 - k):(n - k)]
   out
 }
 
-# Step 1: fit AR to each input (order selected by AIC)
 ar_td <- ar(train$Tdelta, order.max = 15, aic = TRUE, method = "ols")
 ar_gv <- ar(train$Gv,     order.max = 15, aic = TRUE, method = "ols")
-cat("AR order for Tdelta:", ar_td$order, "\n")
-cat("AR order for Gv    :", ar_gv$order, "\n")
+cat("AR order selected — Tdelta:", ar_td$order, " | Gv:", ar_gv$order, "\n")
 
-# Step 2: prewhiten inputs; apply same filter to Ph
-alpha_td <- apply_ar_filter(train$Tdelta, ar_td)   # whitened Tdelta
-beta_td  <- apply_ar_filter(train$Ph,     ar_td)   # Ph filtered by Tdelta AR
+alpha_td <- apply_ar_filter(train$Tdelta, ar_td)
+beta_td  <- apply_ar_filter(train$Ph,     ar_td)
+alpha_gv <- apply_ar_filter(train$Gv,     ar_gv)
+beta_gv  <- apply_ar_filter(train$Ph,     ar_gv)
 
-alpha_gv <- apply_ar_filter(train$Gv, ar_gv)       # whitened Gv
-beta_gv  <- apply_ar_filter(train$Ph, ar_gv)       # Ph filtered by Gv AR
+pdf("report/figures/q3_34_impulse_response.pdf", width = FW, height = FH_S)
+par(mfrow = c(1, 2), mar = c(4.5, 4.5, 2.2, 1))
 
-# Step 3: CCF of prewhitened pairs → estimated impulse response
-png("report/figures/q3_34_impulse_response.png", width = 900, height = 420)
-par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
 ccf(alpha_td, beta_td, lag.max = max_lag_ir,
-    main = "Impulse response (prewhitened): Tdelta -> Ph", ylab = "CCF")
+    main = expression("Impulse response:  " * T[Delta] %->% P[h]),
+    ylab = "CCF")
+grid()
+
 ccf(alpha_gv, beta_gv, lag.max = max_lag_ir,
-    main = "Impulse response (prewhitened): Gv -> Ph", ylab = "CCF")
+    main = expression("Impulse response:  " * G[v] %->% P[h]),
+    ylab = "CCF")
+grid()
 dev.off()
 
-# Comment (3.4):
-# Prewhitening removes input autocorrelation so the CCF estimates the true impulse response.
-# Tdelta → Ph: positive response at lag 0 persisting several hours (thermal inertia of box).
-# Gv → Ph: negative at lag 0 (solar gain reduces heating); effect decays within ~2 hours.
-# The lag structure informs which lags to include in the ARX model.
+ir_td_ccf <- ccf(alpha_td, beta_td, lag.max = max_lag_ir, plot = FALSE)
+ir_gv_ccf <- ccf(alpha_gv, beta_gv, lag.max = max_lag_ir, plot = FALSE)
+
+md_add("## 3.4 Impulse Response (Prewhitening)")
+md_add("**Figure:** `report/figures/q3_34_impulse_response.pdf`")
+md_add("**AR order used to prewhiten Tdelta:** ", ar_td$order)
+md_add("**AR order used to prewhiten Gv:** ", ar_gv$order)
+md_add("**Tdelta IR peak lag:** ", ir_td_ccf$lag[which.max(abs(ir_td_ccf$acf))],
+       " h, CCF = ", round(max(abs(ir_td_ccf$acf)), 3))
+md_add("**Gv IR peak lag:** ", ir_gv_ccf$lag[which.max(abs(ir_gv_ccf$acf))],
+       " h, CCF = ", round(max(abs(ir_gv_ccf$acf)), 3), "\n")
 
 # ---------------------------------------------------------------------------
-# 3.5  Linear regression (no AR): Ph = ω1·Tdelta + ω2·Gv + ε
+# Helper: 2×3 diagnostic panel used for both 3.5 and 3.6
+# ---------------------------------------------------------------------------
+plot_diagnostics <- function(fit, tdate, Tdelta, Gv, title_prefix) {
+  res  <- residuals(fit)
+  fitt <- fitted(fit)
+  obs  <- fitt + res          # same as the response
+
+  # Panel 1: observed vs fitted
+  plot(tdate, obs, type = "l", lwd = LWD, col = COL_OBS,
+       ylab = expression(P[h]~(W)), xlab = "Time",
+       main = bquote(.(title_prefix) * ": observed vs fitted"))
+  lines(tdate, fitt, lwd = LWD, col = COL_FIT, lty = 2)
+  legend("topright", c("Observed", "Fitted"),
+         col = c(COL_OBS, COL_FIT), lty = 1:2, lwd = LWD, bty = "n")
+  grid()
+
+  # Panel 2: residuals over time
+  plot(tdate, res, type = "l", lwd = LWD,
+       ylab = "Residual (W)", xlab = "Time",
+       main = "Residuals over time")
+  abline(h = 0, col = "gray50", lwd = 1)
+  grid()
+
+  # Panels 3–6: ACF, PACF, CCF
+  acf(res,  lag.max = 24, main = "ACF of residuals")
+  grid()
+  pacf(res, lag.max = 24, main = "PACF of residuals")
+  grid()
+  ccf(Tdelta, res, lag.max = 24,
+      main = expression("CCF:  " * T[Delta]~vs~residuals), ylab = "CCF")
+  grid()
+  ccf(Gv, res, lag.max = 24,
+      main = expression("CCF:  " * G[v]~vs~residuals), ylab = "CCF")
+  grid()
+}
+
+# ---------------------------------------------------------------------------
+# 3.5  Linear regression: Ph = omega1*Tdelta + omega2*Gv + epsilon
 # ---------------------------------------------------------------------------
 fit_lm <- lm(Ph ~ Tdelta + Gv, data = train)
-cat("\n--- 3.5 Linear regression ---\n")
-print(summary(fit_lm))
+cat("\n--- 3.5 Linear regression ---\n"); print(summary(fit_lm))
 
-png("report/figures/q3_35_lm_diagnostics.png", width = 1100, height = 700)
-par(mfrow = c(2, 3), mar = c(4, 4, 2, 1))
-plot(train$tdate, train$Ph, type = "l", col = "black",
-     ylab = "Ph (W)", xlab = "Time", main = "3.5 OLS: observed vs fitted")
-lines(train$tdate, fitted(fit_lm), col = "red", lty = 2)
-legend("topright", c("Observed", "Fitted"), col = c("black", "red"), lty = 1:2, cex = 0.8)
-plot(train$tdate, residuals(fit_lm), type = "l",
-     ylab = "Residual (W)", xlab = "Time", main = "Residuals over time")
-abline(h = 0, col = "gray")
-acf(residuals(fit_lm),  lag.max = 24, main = "ACF of residuals")
-pacf(residuals(fit_lm), lag.max = 24, main = "PACF of residuals")
-ccf(train$Tdelta, residuals(fit_lm), lag.max = 24, main = "CCF: Tdelta vs resid")
-ccf(train$Gv,     residuals(fit_lm), lag.max = 24, main = "CCF: Gv vs resid")
+save_coef_tex(fit_lm,
+              file    = "report/tables/q3_35_lm_coef.tex",
+              caption = "OLS coefficient estimates for the linear regression model (3.5).",
+              label   = "tab:lm_coef")
+
+pdf("report/figures/q3_35_lm_diagnostics.pdf", width = FW, height = FH_D)
+par(mfrow = c(2, 3), mar = c(4, 4.5, 2.2, 1))
+plot_diagnostics(fit_lm, train$tdate, train$Tdelta, train$Gv,
+                 title_prefix = "OLS")
 dev.off()
 
-write.csv(as.data.frame(summary(fit_lm)$coefficients),
-          "output/tables/q3_35_lm_coefficients.csv")
-
-# Comment (3.5):
-# Significant autocorrelation in residuals: ACF/PACF show clear AR pattern. CCF of residuals
-# with inputs also shows remaining structure. OLS i.i.d. assumption is violated → need ARX.
+lm_s    <- summary(fit_lm)
+lm_coef <- coef(lm_s)
+md_add("## 3.5 Linear Regression (no AR)")
+md_add("**Figure:** `report/figures/q3_35_lm_diagnostics.pdf`")
+md_add("**Table:** `report/tables/q3_35_lm_coef.tex`")
+md_add("**R²:** ", round(lm_s$r.squared, 4), " | **Adj R²:** ", round(lm_s$adj.r.squared, 4))
+md_add("**Residual std error:** ", round(lm_s$sigma, 3), " W")
+md_add("**omega1 (Tdelta):** ", round(lm_coef["Tdelta","Estimate"],4),
+       " (p=", format(lm_coef["Tdelta","Pr(>|t|)"], digits=3), ")")
+md_add("**omega2 (Gv):** ", round(lm_coef["Gv","Estimate"],4),
+       " (p=", format(lm_coef["Gv","Pr(>|t|)"], digits=3), ")")
+md_add("**Residual ACF:** significant autocorrelation remains → AR terms needed")
+md_add("**Residual CCF:** structure visible vs both inputs → transfer function model needed\n")
 
 # ---------------------------------------------------------------------------
-# 3.6  First-order ARX: Ph = −ϕ1·Ph_{t-1} + ω1·Tdelta + ω2·Gv + ε
+# 3.6  ARX(1): Ph = -phi1*Ph_{t-1} + omega1*Tdelta + omega2*Gv + epsilon
 # ---------------------------------------------------------------------------
 fit_arx1 <- lm(Ph ~ Ph.l1 + Tdelta + Gv, data = train)
-cat("\n--- 3.6 ARX(1) ---\n")
-print(summary(fit_arx1))
+cat("\n--- 3.6 ARX(1) ---\n"); print(summary(fit_arx1))
 
-png("report/figures/q3_36_arx1_diagnostics.png", width = 1100, height = 700)
-par(mfrow = c(2, 3), mar = c(4, 4, 2, 1))
-plot(train$tdate, train$Ph, type = "l", col = "black",
-     ylab = "Ph (W)", xlab = "Time", main = "3.6 ARX(1): observed vs fitted")
-lines(train$tdate, fitted(fit_arx1), col = "red", lty = 2)
-legend("topright", c("Observed", "Fitted"), col = c("black", "red"), lty = 1:2, cex = 0.8)
-plot(train$tdate, residuals(fit_arx1), type = "l",
-     ylab = "Residual (W)", xlab = "Time", main = "Residuals over time")
-abline(h = 0, col = "gray")
-acf(residuals(fit_arx1),  lag.max = 24, main = "ACF of residuals")
-pacf(residuals(fit_arx1), lag.max = 24, main = "PACF of residuals")
-ccf(train$Tdelta, residuals(fit_arx1), lag.max = 24, main = "CCF: Tdelta vs resid")
-ccf(train$Gv,     residuals(fit_arx1), lag.max = 24, main = "CCF: Gv vs resid")
+save_coef_tex(fit_arx1,
+              file    = "report/tables/q3_36_arx1_coef.tex",
+              caption = "OLS coefficient estimates for the ARX(1) model (3.6).",
+              label   = "tab:arx1_coef")
+
+pdf("report/figures/q3_36_arx1_diagnostics.pdf", width = FW, height = FH_D)
+par(mfrow = c(2, 3), mar = c(4, 4.5, 2.2, 1))
+plot_diagnostics(fit_arx1, train$tdate, train$Tdelta, train$Gv,
+                 title_prefix = "ARX(1)")
 dev.off()
 
-write.csv(as.data.frame(summary(fit_arx1)$coefficients),
-          "output/tables/q3_36_arx1_coefficients.csv")
-
-# Comment (3.6):
-# Adding Ph.l1 substantially reduces residual autocorrelation; fit improves markedly.
-# Some structure may remain at longer lags → higher orders evaluated in 3.7.
+arx1_s    <- summary(fit_arx1)
+arx1_coef <- coef(arx1_s)
+md_add("## 3.6 ARX(1)")
+md_add("**Figure:** `report/figures/q3_36_arx1_diagnostics.pdf`")
+md_add("**Table:** `report/tables/q3_36_arx1_coef.tex`")
+md_add("**R²:** ", round(arx1_s$r.squared, 4), " | **Adj R²:** ", round(arx1_s$adj.r.squared, 4))
+md_add("**Residual std error:** ", round(arx1_s$sigma, 3), " W")
+md_add("**phi1 (Ph.l1):** ", round(arx1_coef["Ph.l1","Estimate"],4),
+       " (p=", format(arx1_coef["Ph.l1","Pr(>|t|)"], digits=3), ")")
+md_add("**omega1 (Tdelta):** ", round(arx1_coef["Tdelta","Estimate"],4),
+       " (p=", format(arx1_coef["Tdelta","Pr(>|t|)"], digits=3), ")")
+md_add("**omega2 (Gv):** ", round(arx1_coef["Gv","Estimate"],4),
+       " (p=", format(arx1_coef["Gv","Pr(>|t|)"], digits=3), ")")
+md_add("**Improvement over OLS:** residual autocorrelation substantially reduced\n")
 
 # ---------------------------------------------------------------------------
-# 3.7  ARX order selection: AIC and BIC vs. order p = 1..max_order
-#      Order p means p AR lags and lags 0..p for each exogenous input.
+# 3.7  Model order selection: AIC and BIC vs. p = 1..10
 # ---------------------------------------------------------------------------
 max_order <- 10
-
-aic_vec <- numeric(max_order)
-bic_vec <- numeric(max_order)
+aic_vec   <- numeric(max_order)
+bic_vec   <- numeric(max_order)
 
 for (p in seq_len(max_order)) {
-  regressors <- c(paste0("Ph.l",     1:p),
-                  paste0("Tdelta.l", 0:p),
-                  paste0("Gv.l",     0:p))
-  # Keep only columns that actually exist (caps at the lag depth in the data)
-  regressors <- intersect(regressors, names(box))
-  fit_p      <- lm(as.formula(paste("Ph ~", paste(regressors, collapse = " + "))),
-                   data = train)
+  regs      <- intersect(c(paste0("Ph.l", 1:p),
+                           paste0("Tdelta.l", 0:p),
+                           paste0("Gv.l",     0:p)), names(box))
+  fit_p     <- lm(as.formula(paste("Ph ~", paste(regs, collapse = " + "))), data = train)
   aic_vec[p] <- AIC(fit_p)
   bic_vec[p] <- BIC(fit_p)
 }
 
-ic_df <- data.frame(order = 1:max_order, AIC = aic_vec, BIC = bic_vec)
+ic_df <- data.frame(Order = 1:max_order, AIC = round(aic_vec, 2), BIC = round(bic_vec, 2))
 write.csv(ic_df, "output/tables/q3_37_aic_bic.csv", row.names = FALSE)
+print(xtable(ic_df,
+             caption = "AIC and BIC for ARX models of order $p = 1, \\ldots, 10$ (3.7).",
+             label   = "tab:ic", digits = c(0, 0, 2, 2)),
+      booktabs = TRUE, include.rownames = FALSE,
+      sanitize.text.function = identity,
+      file = "report/tables/q3_37_ic.tex", caption.placement = "top")
 
-png("report/figures/q3_37_aic_bic.png", width = 700, height = 480)
-par(mar = c(4, 4, 2, 1))
+pdf("report/figures/q3_37_aic_bic.pdf", width = FW, height = FH_S)
+par(mar = c(4.5, 4.5, 2, 1))
 ylims <- range(c(aic_vec, bic_vec))
-plot(1:max_order, aic_vec, type = "b", pch = 16, col = "blue",
-     ylim = ylims, xlab = "Model order (p)",
-     ylab = "Information criterion", main = "AIC and BIC vs. ARX order")
-lines(1:max_order, bic_vec, type = "b", pch = 16, col = "red", lty = 2)
-abline(v = which.min(aic_vec), col = "blue", lty = 3)
-abline(v = which.min(bic_vec), col = "red",  lty = 3)
-legend("topright", c("AIC", "BIC"), col = c("blue", "red"), lty = 1:2, pch = 16)
+plot(1:max_order, aic_vec, type = "b", lwd = LWD, pch = 16, col = COL_AIC,
+     ylim = ylims, xlab = "Model order p",
+     ylab = "Information criterion",
+     main = "AIC and BIC vs. ARX model order")
+lines(1:max_order, bic_vec, type = "b", lwd = LWD, pch = 16, col = COL_BIC, lty = 2)
+abline(v = which.min(aic_vec), col = COL_AIC, lty = 3, lwd = 1.5)
+abline(v = which.min(bic_vec), col = COL_BIC,  lty = 3, lwd = 1.5)
+legend("topright", c("AIC", "BIC"), col = c(COL_AIC, COL_BIC),
+       lty = 1:2, lwd = LWD, pch = 16, bty = "n")
+grid()
 dev.off()
 
 cat("AIC minimum at order:", which.min(aic_vec), "\n")
 cat("BIC minimum at order:", which.min(bic_vec), "\n")
 
-# Comment (3.7):
-# BIC penalises extra parameters more heavily (k·ln(N) vs 2k for AIC) and therefore
-# selects a more parsimonious model. AIC may favour a slightly higher order. The chosen
-# order balances in-sample fit with out-of-sample parsimony.
+md_add("## 3.7 Model Order Selection (AIC / BIC)")
+md_add("**Figure:** `report/figures/q3_37_aic_bic.pdf`")
+md_add("**Table:** `report/tables/q3_37_ic.tex`")
+md_add("**Best order by AIC:** ", which.min(aic_vec), " (AIC = ", round(min(aic_vec),2), ")")
+md_add("**Best order by BIC:** ", which.min(bic_vec), " (BIC = ", round(min(bic_vec),2), ")")
+md_add("**AIC values (p=1..10):** ", paste(round(aic_vec,1), collapse=", "))
+md_add("**BIC values (p=1..10):** ", paste(round(bic_vec,1), collapse=", "), "\n")
 
 # ---------------------------------------------------------------------------
-# 3.8  One-step RMSE on the test set vs. model order
-#      RMSE = sqrt( (1/64) * sum_{t=168}^{231} ε²_{t|t-1} )
+# 3.8  One-step RMSE on test set vs. model order
 # ---------------------------------------------------------------------------
 rmse_vec <- numeric(max_order)
-
 for (p in seq_len(max_order)) {
-  regressors <- intersect(
-    c(paste0("Ph.l", 1:p), paste0("Tdelta.l", 0:p), paste0("Gv.l", 0:p)),
-    names(box)
-  )
-  fit_p      <- lm(as.formula(paste("Ph ~", paste(regressors, collapse = " + "))),
-                   data = train)
-  pred_test  <- predict(fit_p, newdata = test)   # one-step: observed lags in test data
+  regs      <- intersect(c(paste0("Ph.l", 1:p),
+                           paste0("Tdelta.l", 0:p),
+                           paste0("Gv.l",     0:p)), names(box))
+  fit_p     <- lm(as.formula(paste("Ph ~", paste(regs, collapse = " + "))), data = train)
+  pred_test <- predict(fit_p, newdata = test)
   rmse_vec[p] <- sqrt(mean((test$Ph - pred_test)^2))
 }
 
-rmse_df <- data.frame(order = 1:max_order, RMSE = rmse_vec)
+rmse_df <- data.frame(Order = 1:max_order, RMSE = round(rmse_vec, 4))
 write.csv(rmse_df, "output/tables/q3_38_rmse.csv", row.names = FALSE)
+print(xtable(rmse_df,
+             caption = "One-step RMSE (W) on the test set for ARX models of order $p = 1, \\ldots, 10$ (3.8).",
+             label   = "tab:rmse", digits = c(0, 0, 4)),
+      booktabs = TRUE, include.rownames = FALSE,
+      sanitize.text.function = identity,
+      file = "report/tables/q3_38_rmse.tex", caption.placement = "top")
 
-png("report/figures/q3_38_rmse.png", width = 700, height = 480)
-par(mar = c(4, 4, 2, 1))
-plot(1:max_order, rmse_vec, type = "b", pch = 16, col = "darkgreen",
-     xlab = "Model order (p)", ylab = "RMSE (W)",
-     main = "One-step RMSE on test set vs. ARX order")
-abline(v = which.min(rmse_vec), col = "darkgreen", lty = 2)
+pdf("report/figures/q3_38_rmse.pdf", width = FW, height = FH_S)
+par(mar = c(4.5, 4.5, 2, 1))
+plot(1:max_order, rmse_vec, type = "b", lwd = LWD, pch = 16, col = COL_RMSE,
+     xlab = "Model order p", ylab = expression("RMSE  "(W)),
+     main = "One-step test-set RMSE vs. ARX model order")
+abline(v = which.min(rmse_vec), col = COL_RMSE, lty = 3, lwd = 1.5)
+legend("topright", paste0("Min at p = ", which.min(rmse_vec)),
+       col = COL_RMSE, lty = 3, lwd = 1.5, bty = "n")
+grid()
 dev.off()
 
 cat("RMSE minimum at order:", which.min(rmse_vec), "\n")
 
-# Comment (3.8):
-# Test-set RMSE measures actual predictive performance on unseen data. It may point to a
-# different order than AIC/BIC (often lower, avoiding overfitting).
+md_add("## 3.8 Test-Set RMSE vs. Model Order")
+md_add("**Figure:** `report/figures/q3_38_rmse.pdf`")
+md_add("**Table:** `report/tables/q3_38_rmse.tex`")
+md_add("**Best order by RMSE:** ", which.min(rmse_vec), " (RMSE = ", round(min(rmse_vec),4), " W)")
+md_add("**RMSE values (p=1..10):** ", paste(round(rmse_vec,3), collapse=", "), "\n")
 
 # ---------------------------------------------------------------------------
 # 3.9  Multi-step simulation over the full period
-#      AR lags are computed iteratively from the simulated series;
-#      input lags (Tdelta, Gv) use the observed values throughout.
 # ---------------------------------------------------------------------------
-# Choose model order (update p_best manually after inspecting 3.7 and 3.8)
-p_best <- which.min(bic_vec)   # <-- change this if AIC / RMSE suggest a different order
+# p_best defaults to BIC-selected order — change manually if 3.7/3.8 suggest otherwise
+p_best <- which.min(bic_vec)
 cat("\nUsing ARX(", p_best, ") for multi-step simulation.\n")
 
-regressors_best <- intersect(
-  c(paste0("Ph.l", 1:p_best), paste0("Tdelta.l", 0:p_best), paste0("Gv.l", 0:p_best)),
-  names(box)
-)
-fit_best <- lm(as.formula(paste("Ph ~", paste(regressors_best, collapse = " + "))),
-               data = train)
+regs_best <- intersect(c(paste0("Ph.l", 1:p_best),
+                         paste0("Tdelta.l", 0:p_best),
+                         paste0("Gv.l",     0:p_best)), names(box))
+fit_best  <- lm(as.formula(paste("Ph ~", paste(regs_best, collapse = " + "))), data = train)
 saveRDS(fit_best, paste0("output/models/q3_arx_order", p_best, ".rds"))
-write.csv(as.data.frame(summary(fit_best)$coefficients),
-          paste0("output/tables/q3_39_arx", p_best, "_coefficients.csv"))
 
-# Iterative simulation
-Ph_sim <- box$Ph                       # initialise with observed values
-coefs  <- coef(fit_best)               # named coefficient vector including "(Intercept)"
-ar_lags    <- grep("^Ph\\.l",     regressors_best, value = TRUE)
-input_lags <- grep("^(Tdelta|Gv)", regressors_best, value = TRUE)
+save_coef_tex(fit_best,
+              file    = paste0("report/tables/q3_39_arx", p_best, "_coef.tex"),
+              caption = paste0("Coefficient estimates for the chosen ARX(", p_best, ") model."),
+              label   = paste0("tab:arx", p_best, "_coef"))
+
+# Iterative simulation: AR lags from simulated Ph, input lags from observed data
+coefs      <- coef(fit_best)
+ar_lags    <- grep("^Ph\\.l",      regs_best, value = TRUE)
+input_lags <- grep("^(Tdelta|Gv)", regs_best, value = TRUE)
+Ph_sim     <- box$Ph
 
 for (t in seq(p_best + 1, nrow(box))) {
-  ar_part    <- sum(coefs[ar_lags]    * sapply(ar_lags,    function(nm) {
-    lag_k <- as.integer(sub("Ph.l", "", nm))
-    Ph_sim[t - lag_k]          # use the iterated (simulated) value
-  }))
+  ar_part    <- sum(coefs[ar_lags] * sapply(ar_lags, function(nm)
+                  Ph_sim[t - as.integer(sub("Ph.l", "", nm))]))
   input_part <- sum(coefs[input_lags] * as.numeric(box[t, input_lags]))
   Ph_sim[t]  <- coefs["(Intercept)"] + ar_part + input_part
 }
 
-sim_df <- data.frame(tdate  = box$tdate,
-                     Ph_obs = box$Ph,
-                     Ph_sim = Ph_sim,
-                     set    = ifelse(box$thour <= 167, "train", "test"))
+sim_df <- data.frame(tdate = box$tdate, Ph_obs = box$Ph, Ph_sim = Ph_sim)
 write.csv(sim_df, "output/tables/q3_39_simulation.csv", row.names = FALSE)
 
-png("report/figures/q3_39_multistep_simulation.png", width = 1000, height = 480)
-par(mar = c(4, 4, 2, 1))
-plot(sim_df$tdate, sim_df$Ph_obs, type = "l", col = "black",
-     ylab = "Ph (W)", xlab = "Time",
-     main = paste0("Multi-step simulation — ARX(", p_best, ")"))
-lines(sim_df$tdate, sim_df$Ph_sim, col = "red", lty = 2)
-abline(v = as.numeric(max(train$tdate)), col = "gray60", lty = 3, lwd = 1.5)
+split_t <- as.numeric(max(train$tdate))
+
+pdf("report/figures/q3_39_multistep_simulation.pdf", width = FW, height = FH_S)
+par(mar = c(4.5, 4.5, 2, 1))
+plot(sim_df$tdate, sim_df$Ph_obs, type = "l", lwd = LWD, col = COL_OBS,
+     ylab = expression(P[h]~(W)), xlab = "Time",
+     main = bquote("Multi-step simulation  \u2014  ARX(" * .(p_best) * ")"))
+lines(sim_df$tdate, sim_df$Ph_sim, lwd = LWD, col = COL_FIT, lty = 2)
+abline(v = split_t, col = "gray40", lty = 3, lwd = 1.5)
 legend("topright",
        c("Observed", "Simulated", "Train / test split"),
-       col = c("black", "red", "gray60"), lty = c(1, 2, 3), lwd = c(1, 1, 1.5), cex = 0.8)
+       col = c(COL_OBS, COL_FIT, "gray40"),
+       lty = c(1, 2, 3), lwd = c(LWD, LWD, 1.5), bty = "n")
+grid()
 dev.off()
 
-# Comment (3.9):
-# Multi-step simulation propagates AR lags from the simulated (not observed) series, so
-# errors accumulate over time. The model may still capture the broad daily pattern while
-# showing larger deviations than one-step predictions. In a real-time setting the observed
-# inputs (Tdelta, Gv) would also need to be forecast, adding further uncertainty — unless
-# they can be obtained from a weather forecast service.
+# ---------------------------------------------------------------------------
+# 3.10  Print summary to console + finish markdown
+# ---------------------------------------------------------------------------
+sim_rmse_train <- sqrt(mean((sim_df$Ph_obs[box$thour <= 167] -
+                              sim_df$Ph_sim[box$thour <= 167])^2, na.rm = TRUE))
+sim_rmse_test  <- sqrt(mean((sim_df$Ph_obs[box$thour >  167] -
+                              sim_df$Ph_sim[box$thour >  167])^2, na.rm = TRUE))
 
-# ---------------------------------------------------------------------------
-# 3.10  Summary
-# ---------------------------------------------------------------------------
 cat("\n=== 3.10 Summary ===\n")
-cat("Best order by AIC :", which.min(aic_vec), "\n")
-cat("Best order by BIC :", which.min(bic_vec), "\n")
-cat("Best order by RMSE:", which.min(rmse_vec), "\n")
+cat("Best order — AIC:", which.min(aic_vec),
+    "| BIC:", which.min(bic_vec),
+    "| RMSE:", which.min(rmse_vec), "\n")
 cat("Model used for simulation: ARX(", p_best, ")\n\n")
-cat("Coefficient table for chosen model:\n")
 print(summary(fit_best)$coefficients)
 
-# Conclusion (3.10):
-# The ARX model successfully captures the transfer-function dynamics between weather
-# variables (Tdelta, Gv) and heating demand (Ph). Including AR lags removes the residual
-# autocorrelation present in the plain regression. BIC selects a parsimonious order while
-# the test-set RMSE confirms predictive accuracy. Multi-step simulation shows the model
-# tracks the daily heating pattern well in-sample and reasonably in the test period,
-# though accuracy degrades as the simulation horizon grows.
+md_add("## 3.9 Multi-Step Simulation")
+md_add("**Figure:** `report/figures/q3_39_multistep_simulation.pdf`")
+md_add("**Table (coefficients):** `report/tables/q3_39_arx", p_best, "_coef.tex`")
+md_add("**Model used:** ARX(", p_best, ")")
+md_add("**Simulation RMSE — training period:** ", round(sim_rmse_train, 3), " W")
+md_add("**Simulation RMSE — test period:** ",     round(sim_rmse_test,  3), " W")
+md_add("**Coefficients:**")
+for (nm in names(coef(fit_best))) md_add("  - ", nm, ": ", round(coef(fit_best)[nm], 4))
+
+md_add("\n## 3.10 Summary")
+md_add("| Criterion | Best order |")
+md_add("|-----------|------------|")
+md_add("| AIC       | ", which.min(aic_vec), " |")
+md_add("| BIC       | ", which.min(bic_vec), " |")
+md_add("| Test RMSE | ", which.min(rmse_vec), " |")
+md_add("| Chosen    | ", p_best, " (BIC) |\n")
+
+writeLines(md, "report/q3_results_summary.md")
+
+cat("\nAll PDFs  → report/figures/\n")
+cat("All .tex  → report/tables/\n")
+cat("Summary   → report/q3_results_summary.md\n")
