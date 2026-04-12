@@ -263,7 +263,7 @@ save_forecast_only_plot <- function(solar_df, forecast_table, file) {
   ylim <- range(c(solar_df$Y, forecast_table$forecast), na.rm = TRUE)
 
   png(file, width = 1300, height = 760, res = 130)
-  par(mar = c(4.2, 4.8, 3.2, 1.2), mgp = c(2.7, 0.8, 0))
+  par(mar = c(5.8, 4.8, 3.2, 1.2), mgp = c(2.7, 0.8, 0))
 
   plot(
     solar_df$date, solar_df$Y,
@@ -298,7 +298,7 @@ save_forecast_interval_plot <- function(solar_df, forecast_table, file) {
   ylim <- range(c(solar_df$Y, forecast_table$lower, forecast_table$upper), na.rm = TRUE)
 
   png(file, width = 1300, height = 760, res = 130)
-  par(mar = c(4.2, 4.8, 3.2, 1.2), mgp = c(2.7, 0.8, 0))
+  par(mar = c(5.8, 4.8, 3.2, 1.2), mgp = c(2.7, 0.8, 0))
 
   plot(
     solar_df$date, solar_df$Y,
