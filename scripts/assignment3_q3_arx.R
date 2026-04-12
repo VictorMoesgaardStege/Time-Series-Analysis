@@ -91,13 +91,15 @@ md_add("**N total:** ", nrow(box), " hourly observations\n")
 # ---------------------------------------------------------------------------
 # 3.2  Train / test split
 # ---------------------------------------------------------------------------
-train <- box[box$thour <= 167, ]
-test  <- box[box$thour >  167, ]
+# thour starts at 19 (first 18 rows lost to lag computation), so the assignment's
+# "2013-02-06 00:00" corresponds to thour = 185, which is row 167 of the data.
+train <- box[1:167, ]
+test  <- box[168:nrow(box), ]
 cat("Training rows:", nrow(train), "| Last:", format(max(train$tdate)), "\n")
 cat("Test rows    :", nrow(test),  "| First:", format(min(test$tdate)), "\n")
 
 md_add("## 3.2 Train/Test Split")
-md_add("**Training set:** ", nrow(train), " obs, thour 1–167, up to ", format(max(train$tdate)))
+md_add("**Training set:** ", nrow(train), " obs (rows 1–167, thour up to 185), up to ", format(max(train$tdate)))
 md_add("**Test set:** ", nrow(test), " obs, thour 168–231, from ", format(min(test$tdate)), "\n")
 
 # ---------------------------------------------------------------------------
@@ -304,8 +306,8 @@ bic_vec   <- numeric(max_order)
 
 for (p in seq_len(max_order)) {
   regs      <- intersect(c(paste0("Ph.l", 1:p),
-                           paste0("Tdelta.l", 0:p),
-                           paste0("Gv.l",     0:p)), names(box))
+                           paste0("Tdelta.l", 0:(p-1)),
+                           paste0("Gv.l",     0:(p-1))), names(box))
   fit_p     <- lm(as.formula(paste("Ph ~", paste(regs, collapse = " + "))), data = train)
   aic_vec[p] <- AIC(fit_p)
   bic_vec[p] <- BIC(fit_p)
@@ -352,11 +354,13 @@ md_add("**BIC values (p=1..10):** ", paste(round(bic_vec,1), collapse=", "), "\n
 rmse_vec <- numeric(max_order)
 for (p in seq_len(max_order)) {
   regs      <- intersect(c(paste0("Ph.l", 1:p),
-                           paste0("Tdelta.l", 0:p),
-                           paste0("Gv.l",     0:p)), names(box))
+                           paste0("Tdelta.l", 0:(p-1)),
+                           paste0("Gv.l",     0:(p-1))), names(box))
   fit_p     <- lm(as.formula(paste("Ph ~", paste(regs, collapse = " + "))), data = train)
   pred_test <- predict(fit_p, newdata = test)
-  rmse_vec[p] <- sqrt(mean((test$Ph - pred_test)^2))
+  resid_test  <- test$Ph - pred_test
+  stopifnot(length(resid_test) == 64)            # guard: assignment specifies 1/64
+  rmse_vec[p] <- sqrt(sum(resid_test^2) / 64)
 }
 
 rmse_df <- data.frame(Order = 1:max_order, RMSE = round(rmse_vec, 4))
@@ -395,8 +399,8 @@ p_best <- which.min(bic_vec)
 cat("\nUsing ARX(", p_best, ") for multi-step simulation.\n")
 
 regs_best <- intersect(c(paste0("Ph.l", 1:p_best),
-                         paste0("Tdelta.l", 0:p_best),
-                         paste0("Gv.l",     0:p_best)), names(box))
+                         paste0("Tdelta.l", 0:(p_best-1)),
+                         paste0("Gv.l",     0:(p_best-1))), names(box))
 fit_best  <- lm(as.formula(paste("Ph ~", paste(regs_best, collapse = " + "))), data = train)
 saveRDS(fit_best, paste0("output/models/q3_arx_order", p_best, ".rds"))
 
@@ -440,10 +444,10 @@ dev.off()
 # ---------------------------------------------------------------------------
 # 3.10  Print summary to console + finish markdown
 # ---------------------------------------------------------------------------
-sim_rmse_train <- sqrt(mean((sim_df$Ph_obs[box$thour <= 167] -
-                              sim_df$Ph_sim[box$thour <= 167])^2, na.rm = TRUE))
-sim_rmse_test  <- sqrt(mean((sim_df$Ph_obs[box$thour >  167] -
-                              sim_df$Ph_sim[box$thour >  167])^2, na.rm = TRUE))
+sim_rmse_train <- sqrt(mean((sim_df$Ph_obs[1:167] -
+                              sim_df$Ph_sim[1:167])^2, na.rm = TRUE))
+sim_rmse_test  <- sqrt(mean((sim_df$Ph_obs[168:nrow(box)] -
+                              sim_df$Ph_sim[168:nrow(box)])^2, na.rm = TRUE))
 
 cat("\n=== 3.10 Summary ===\n")
 cat("Best order — AIC:", which.min(aic_vec),

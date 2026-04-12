@@ -48,7 +48,7 @@ The ACF of $P_h$ (Figure~\ref{fig:q3_acf_ccf}) decays slowly, indicating strong 
 \subsection{3.4 Impulse response via prewhitening}
 \label{sec:q3_34}
 
-To obtain unbiased estimates of the impulse response, both inputs are prewhitened by fitting AR(2) models and applying the same filter to $P_h$ \cite[§8.7, p.\,269]{madsen2007time}. Figure~\ref{fig:q3_ir} shows the resulting CCFs. The $T_\Delta \to P_h$ impulse response peaks at lag~0 with $\hat{\rho} = 0.517$, and the $G_v \to P_h$ response peaks at lag~0 with $\hat{\rho} = -0.823$. Both effects are concentrated at lag~0, suggesting that the transfer function does not require delay (i.e., $b = 0$).
+To obtain unbiased estimates of the impulse response, the inputs are prewhitened by fitting AR models---AR(2) for $T_\Delta$ and AR(1) for $G_v$---and applying the same filter to $P_h$ \cite[§8.7, p.\,269]{madsen2007time}. Figure~\ref{fig:q3_ir} shows the resulting CCFs. The $T_\Delta \to P_h$ impulse response peaks at lag~0 with $\hat{\rho} = 0.50$, and the $G_v \to P_h$ response peaks at lag~0 with $\hat{\rho} = -0.84$. Both effects are concentrated at lag~0, suggesting that the transfer function does not require delay (i.e., $b = 0$).
 
 \begin{figure}[H]
   \centering
@@ -66,7 +66,7 @@ As a baseline, we fit a static linear regression on the training set:
   P_{h,t} = \omega_0 + \omega_1 T_{\Delta,t} + \omega_2 G_{v,t} + \varepsilon_t.
   \label{eq:lm}
 \end{equation}
-Both inputs are highly significant (Table~\ref{tab:lm_coef}), with $\hat{\omega}_1 = 3.42$\,W/$^\circ$C and $\hat{\omega}_2 = -0.113$\,W/(W/m$^2$), yielding $R^2 = 0.903$ and $\hat{\sigma} = 4.91$\,W. However, the residual ACF in Figure~\ref{fig:q3_lm_diag} shows strong autocorrelation, violating the i.i.d.\ assumption and indicating that AR dynamics must be included.
+Both inputs are highly significant (Table~\ref{tab:lm_coef}), with $\hat{\omega}_1 = 3.34$\,W/$^\circ$C and $\hat{\omega}_2 = -0.111$\,W/(W/m$^2$), yielding $R^2 = 0.898$ and $\hat{\sigma} = 5.18$\,W. However, the residual ACF in Figure~\ref{fig:q3_lm_diag} shows strong autocorrelation, violating the i.i.d.\ assumption and indicating that AR dynamics must be included.
 
 \begin{figure}[H]
   \centering
@@ -89,7 +89,7 @@ Adding one autoregressive lag gives the ARX(1) model:
   P_{h,t} = \phi_1 P_{h,t-1} + \omega_1 T_{\Delta,t} + \omega_2 G_{v,t} + \varepsilon_t.
   \label{eq:arx1}
 \end{equation}
-All coefficients are highly significant (Table~\ref{tab:arx1_coef}), with $\hat{\phi}_1 = 0.415$, confirming the autoregressive dynamics identified in Section~\ref{sec:q3_33}. The model achieves $R^2 = 0.977$ and $\hat{\sigma} = 2.42$\,W---a 51\% reduction in residual standard error compared to~\eqref{eq:lm}. Figure~\ref{fig:q3_arx1_diag} shows that residual autocorrelation is substantially reduced, though some structure may persist at longer lags.
+All coefficients are highly significant (Table~\ref{tab:arx1_coef}), with $\hat{\phi}_1 = 0.405$, confirming the autoregressive dynamics identified in Section~\ref{sec:q3_33}. The model achieves $R^2 = 0.975$ and $\hat{\sigma} = 2.58$\,W---a 50\% reduction in residual standard error compared to~\eqref{eq:lm}. Figure~\ref{fig:q3_arx1_diag} shows that residual autocorrelation is substantially reduced, though some structure may persist at longer lags.
 
 \begin{figure}[H]
   \centering
@@ -115,7 +115,7 @@ ARX models of order $p = 1, \ldots, 10$ are fitted to the training data. The gen
            + \varepsilon_t.
   \label{eq:arxp}
 \end{equation}
-Table~\ref{tab:ic} and Figure~\ref{fig:q3_aic_bic} show the information criteria. AIC selects $p = 5$ (AIC\,=\,585.8), whereas BIC selects $p = 3$ (BIC\,=\,638.6). The discrepancy arises because BIC penalises model complexity more heavily ($k \ln N$ versus $2k$), favouring a more parsimonious model.
+Table~\ref{tab:ic} and Figure~\ref{fig:q3_aic_bic} show the information criteria. Both AIC and BIC select $p = 6$ (AIC\,=\,688.7, BIC\,=\,751.1). Although BIC penalises complexity more heavily ($k \ln N$ versus $2k$), the improvement from $p = 5$ to $p = 6$ is large enough that both criteria agree, indicating that the additional lags capture meaningful dynamics.
 
 \begin{figure}[H]
   \centering
@@ -133,7 +133,7 @@ Table~\ref{tab:ic} and Figure~\ref{fig:q3_aic_bic} show the information criteria
 \subsection{3.8 Test-set RMSE}
 \label{sec:q3_38}
 
-Figure~\ref{fig:q3_rmse} and Table~\ref{tab:rmse} report the one-step-ahead RMSE on the test set. The minimum RMSE is achieved at $p = 4$ (RMSE\,=\,3.034\,W), but the differences for $p = 2$--$5$ are negligible (range 3.03--3.06\,W). For $p \geq 6$, RMSE rises slightly, indicating overfitting. Thus the test-set criterion suggests a middle order, distinct from both AIC ($p=5$) and BIC ($p=3$).
+Figure~\ref{fig:q3_rmse} and Table~\ref{tab:rmse} report the one-step-ahead RMSE on the test set. The minimum RMSE is achieved at $p = 3$ (RMSE\,=\,2.830\,W), with a clear drop from $p = 2$ (3.195\,W) to $p = 3$. For $p \geq 4$, RMSE rises again, suggesting that higher-order models overfit the training data. Thus the test-set criterion favours a more parsimonious model ($p = 3$) than the information criteria ($p = 6$).
 
 \begin{figure}[H]
   \centering
@@ -151,24 +151,24 @@ Figure~\ref{fig:q3_rmse} and Table~\ref{tab:rmse} report the one-step-ahead RMSE
 \subsection{3.9 Multi-step simulation}
 \label{sec:q3_39}
 
-We select the ARX(3) model (BIC-optimal) and evaluate its multi-step simulation performance. In simulation mode, the AR lags $P_{h,t-1}, P_{h,t-2}, P_{h,t-3}$ are computed iteratively from the model's own predictions rather than observed values, while $T_\Delta$ and $G_v$ use observed data. The full coefficient estimates are given in Table~\ref{tab:arx3_coef}.
+We select the ARX(6) model (optimal by both AIC and BIC) and evaluate its multi-step simulation performance. In simulation mode, the AR lags $P_{h,t-1}, \ldots, P_{h,t-6}$ are computed iteratively from the model's own predictions rather than observed values, while $T_\Delta$ and $G_v$ use observed data. The full coefficient estimates are given in Table~\ref{tab:arx6_coef}.
 
-Figure~\ref{fig:q3_sim} compares observed and simulated $P_h$ over both training and test periods. The simulation RMSE is 1.65\,W on the training set and 3.21\,W on the test set. The model tracks the diurnal heating pattern well, though accumulated prediction errors cause some drift during extended simulation. In a real-time forecasting application, the exogenous inputs $T_\Delta$ and $G_v$ would themselves need to be forecast (e.g.\ using numerical weather predictions for $G_v$), adding further uncertainty.
+Figure~\ref{fig:q3_sim} compares observed and simulated $P_h$ over both training and test periods. The simulation RMSE is 1.77\,W on the training set and 3.40\,W on the test set. The model tracks the diurnal heating pattern well, though accumulated prediction errors cause some drift during extended simulation. In a real-time forecasting application, the exogenous inputs $T_\Delta$ and $G_v$ would themselves need to be forecast (e.g.\ using numerical weather predictions for $G_v$), adding further uncertainty.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=\linewidth]{figures/q3_39_multistep_simulation}
-  \caption{Multi-step simulation of the ARX(3) model: observed (black) versus simulated (red) heater power $P_h$ over the full 231-hour period.}
+  \caption{Multi-step simulation of the ARX(6) model: observed (black) versus simulated (red) heater power $P_h$ over the full 231-hour period.}
   \label{fig:q3_sim}
 \end{figure}
 
 \begin{table}[H]
   \centering
-  \input{tables/q3_39_arx3_coef}
+  \input{tables/q3_39_arx6_coef}
 \end{table}
 
 %% 3.10 --------------------------------------------------------------
 \subsection{3.10 Summary}
 \label{sec:q3_310}
 
-The three selection criteria disagree: AIC selects $p = 5$, BIC selects $p = 3$, and test-set RMSE selects $p = 4$. We adopt the BIC-selected ARX(3) model as the final choice. The BIC's stronger complexity penalty guards against overfitting on this moderately sized dataset ($N = 149$), and the test-set RMSE of the ARX(3) is only marginally higher than the optimum at $p = 4$ (3.053 versus 3.034\,W). The ARX(3) model achieves a training simulation RMSE of 1.65\,W and a test simulation RMSE of 3.21\,W, demonstrating that it captures the dominant thermal dynamics of the box well.
+Both AIC and BIC select $p = 6$, while the test-set RMSE is minimised at $p = 3$ (2.830\,W). We adopt the ARX(6) model as the final choice, since both information criteria agree and the model captures richer dynamics in the temperature-difference input. The ARX(6) achieves a training simulation RMSE of 1.77\,W and a test simulation RMSE of 3.40\,W, demonstrating that it captures the dominant thermal dynamics of the box well.
