@@ -29,7 +29,6 @@ lag_vec <- function(x, lag = 1L) {
 # -----------------------------
 # Data loading
 # -----------------------------
-
 read_solar_data <- function(path = "data/datasolar.csv") {
   if (!file.exists(path)) {
     stop(
@@ -42,18 +41,35 @@ read_solar_data <- function(path = "data/datasolar.csv") {
   dat <- read.csv(path, stringsAsFactors = FALSE, check.names = FALSE)
   names_lower <- tolower(names(dat))
 
-  # Find the generation column in a robust way.
-  preferred <- grep("^(y|yt|generation|gen|mwh|power|solar)", names_lower)
-  numeric_cols <- which(vapply(dat, is.numeric, logical(1)))
-
+  # Prefer actual response names, not generic names starting with "y"
+  exact_priority <- c("power", "generation", "gen", "mwh", "yt", "y")
   y_col <- NULL
-  if (length(preferred) > 0L) {
-    numeric_preferred <- preferred[preferred %in% numeric_cols]
-    if (length(numeric_preferred) > 0L) y_col <- numeric_preferred[1]
+
+  for (nm in exact_priority) {
+    idx <- which(names_lower == nm)
+    if (length(idx) > 0 && is.numeric(dat[[idx[1]]])) {
+      y_col <- idx[1]
+      break
+    }
   }
+
+  # Fallback: look for names containing relevant response words
   if (is.null(y_col)) {
+    candidate_idx <- grep("(power|generation|gen|mwh|solar)", names_lower)
+    candidate_idx <- candidate_idx[vapply(dat[candidate_idx], is.numeric, logical(1))]
+    if (length(candidate_idx) > 0) {
+      y_col <- candidate_idx[1]
+    }
+  }
+
+  # Final fallback: first numeric column that is not year/month
+  if (is.null(y_col)) {
+    numeric_cols <- which(vapply(dat, is.numeric, logical(1)))
+    exclude <- which(names_lower %in% c("year", "month"))
+    numeric_cols <- setdiff(numeric_cols, exclude)
+
     if (length(numeric_cols) == 0L) {
-      stop("No numeric column found in datasolar.csv.")
+      stop("No suitable numeric response column found in datasolar.csv.")
     }
     y_col <- numeric_cols[1]
   }
@@ -63,8 +79,6 @@ read_solar_data <- function(path = "data/datasolar.csv") {
     stop("The response variable must contain strictly positive finite values, since log(Y_t) is used.")
   }
 
-  # Construct dates when possible. Otherwise assume monthly data starting in 2008-01,
-  # which matches the assignment figure.
   date <- NULL
 
   if ("date" %in% names_lower) {
@@ -89,13 +103,11 @@ read_solar_data <- function(path = "data/datasolar.csv") {
     date <- seq.Date(from = as.Date("2008-01-01"), by = "month", length.out = length(y))
   }
 
-  out <- data.frame(
+  data.frame(
     t = seq_along(y),
     date = date,
     Y = y
   )
-
-  return(out)
 }
 
 # -----------------------------
@@ -378,3 +390,4 @@ run_solar_part2 <- function(
     )
   )
 }
+

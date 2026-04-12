@@ -1,0 +1,6 @@
+"check","value"
+"Residual mean",0.013384195643066
+"Residual SD",0.210193564619283
+"Ljung-Box p-value (lag 6)",0.566903778195384
+"Ljung-Box p-value (lag 11)",0.135483977894377
+"Shapiro-Wilk p-value",0.151561325570355
