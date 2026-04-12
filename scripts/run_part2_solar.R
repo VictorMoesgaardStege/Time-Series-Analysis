@@ -13,6 +13,9 @@
 #
 # Run from the project root:
 #   Rscript scripts/run_part2_solar.R
+# Run script for Assignment 3, Part 2.
+# Run from the project root:
+#   Rscript scripts/run_part2_solar.R
 
 source("R/solar_part2_functions.R")
 
@@ -31,13 +34,18 @@ results <- run_solar_part2(
 cat("\nResidual diagnostic summary:\n")
 print(results$diagnostics)
 
-cat("\n12-month forecast table:\n")
-print(results$forecast[, c("horizon", "date", "forecast", "lower", "upper")])
+cat("\n2.2 forecast table:\n")
+print(results$forecast_only)
+
+cat("\n2.3 forecast interval table:\n")
+print(results$forecast_intervals)
 
 cat("\nFiles written to:\n")
 cat("  - report/figures/part2_observed_solar_series.png\n")
 cat("  - report/figures/part2_residual_diagnostics.png\n")
+cat("  - report/figures/part2_forecast_only.png\n")
 cat("  - report/figures/part2_forecast_with_intervals.png\n")
 cat("  - output/tables/part2_solar_forecast_table.csv\n")
+cat("  - output/tables/part2_solar_forecast_intervals_table.csv\n")
 cat("  - output/tables/part2_residual_diagnostic_tests.csv\n")
 cat("  - output/models/part2_solar_results.rds\n")

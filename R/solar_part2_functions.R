@@ -2,9 +2,6 @@
 # Helper functions following the project structure in README.md.
 # The code uses the fixed model given in the assignment:
 # (1 + phi1 B)(1 + Phi1 B^12)(log(Y_t) - mu) = eps_t
-#
-# Run the analysis from the project root, for example:
-#   Rscript scripts/run_part2_solar.R
 
 # -----------------------------
 # Utility helpers
@@ -29,6 +26,7 @@ lag_vec <- function(x, lag = 1L) {
 # -----------------------------
 # Data loading
 # -----------------------------
+
 read_solar_data <- function(path = "data/datasolar.csv") {
   if (!file.exists(path)) {
     stop(
@@ -41,7 +39,6 @@ read_solar_data <- function(path = "data/datasolar.csv") {
   dat <- read.csv(path, stringsAsFactors = FALSE, check.names = FALSE)
   names_lower <- tolower(names(dat))
 
-  # Prefer actual response names, not generic names starting with "y"
   exact_priority <- c("power", "generation", "gen", "mwh", "yt", "y")
   y_col <- NULL
 
@@ -53,7 +50,6 @@ read_solar_data <- function(path = "data/datasolar.csv") {
     }
   }
 
-  # Fallback: look for names containing relevant response words
   if (is.null(y_col)) {
     candidate_idx <- grep("(power|generation|gen|mwh|solar)", names_lower)
     candidate_idx <- candidate_idx[vapply(dat[candidate_idx], is.numeric, logical(1))]
@@ -62,7 +58,6 @@ read_solar_data <- function(path = "data/datasolar.csv") {
     }
   }
 
-  # Final fallback: first numeric column that is not year/month
   if (is.null(y_col)) {
     numeric_cols <- which(vapply(dat, is.numeric, logical(1)))
     exclude <- which(names_lower %in% c("year", "month"))
@@ -123,10 +118,7 @@ compute_one_step_residuals <- function(X, phi1, Phi1) {
   eps_hat <- rep(NA_real_, n)
   xhat_1step <- rep(NA_real_, n)
 
-  # Model:
   # X_t + phi1 X_{t-1} + Phi1 X_{t-12} + phi1*Phi1 X_{t-13} = eps_t
-  # Hence the one-step predictor is
-  # Xhat_{t|t-1} = -phi1 X_{t-1} - Phi1 X_{t-12} - phi1*Phi1 X_{t-13}
   for (tt in 14:n) {
     xhat_1step[tt] <- -phi1 * X[tt - 1] - Phi1 * X[tt - 12] - phi1 * Phi1 * X[tt - 13]
     eps_hat[tt] <- X[tt] - xhat_1step[tt]
@@ -156,8 +148,8 @@ forecast_seasonal_ar <- function(X, h, phi1, Phi1) {
 compute_ar1_prediction_intervals <- function(x_forecast, mu, sigma2_eps, phi1, level = 0.95) {
   h <- length(x_forecast)
 
-  # Ignore the seasonal part as requested in the assignment.
-  # (1 + phi1 B) X_t = eps_t  <=>  X_t = a X_{t-1} + eps_t, where a = -phi1
+  # Ignore seasonal part as requested in 2.3
+  # (1 + phi1 B)X_t = eps_t  <=>  X_t = a X_{t-1} + eps_t, where a = -phi1
   a <- -phi1
   z <- qnorm(1 - (1 - level) / 2)
 
@@ -196,7 +188,7 @@ residual_test_table <- function(residuals) {
   lb_lag_6 <- min(6L, max(1L, floor(n / 3)))
   lb_lag_12 <- min(12L, max(1L, floor(n / 2)))
 
-  out <- data.frame(
+  data.frame(
     check = c(
       "Residual mean",
       "Residual SD",
@@ -212,8 +204,6 @@ residual_test_table <- function(residuals) {
       unname(shapiro.test(e)$p.value)
     )
   )
-
-  out
 }
 
 # -----------------------------
@@ -267,12 +257,10 @@ save_residual_diagnostics_plot <- function(solar_df, residual_df, file) {
   dev.off()
 }
 
-save_forecast_plot <- function(solar_df, forecast_table, file) {
+save_forecast_only_plot <- function(solar_df, forecast_table, file) {
   last_date <- tail(solar_df$date, 1)
-  future_dates <- seq.Date(from = last_date, by = "month", length.out = nrow(forecast_table) + 1L)[-1]
-
-  y_all <- c(solar_df$Y, forecast_table$forecast)
-  ylim <- range(c(solar_df$Y, forecast_table$lower, forecast_table$upper), na.rm = TRUE)
+  future_dates <- forecast_table$date
+  ylim <- range(c(solar_df$Y, forecast_table$forecast), na.rm = TRUE)
 
   png(file, width = 1300, height = 760, res = 130)
   par(mar = c(4.2, 4.8, 3.2, 1.2), mgp = c(2.7, 0.8, 0))
@@ -285,7 +273,42 @@ save_forecast_plot <- function(solar_df, forecast_table, file) {
     xlab = "Time",
     ylab = "Generation (MWh)",
     main = "Observed series and 12-month ahead forecast",
-    sub = "Forecasts from the specified seasonal AR model with 95% prediction intervals"
+    sub = "Point forecasts from the specified seasonal AR model"
+  )
+  grid()
+
+  lines(solar_df$date, solar_df$Y, type = "o", pch = 1)
+  lines(future_dates, forecast_table$forecast, type = "o", pch = 16, lty = 2, lwd = 2)
+  abline(v = last_date, lty = 2)
+
+  legend(
+    "topright",
+    legend = c("Observed", "Forecast"),
+    lty = c(1, 2),
+    pch = c(1, 16),
+    bty = "n"
+  )
+
+  dev.off()
+}
+
+save_forecast_interval_plot <- function(solar_df, forecast_table, file) {
+  last_date <- tail(solar_df$date, 1)
+  future_dates <- forecast_table$date
+  ylim <- range(c(solar_df$Y, forecast_table$lower, forecast_table$upper), na.rm = TRUE)
+
+  png(file, width = 1300, height = 760, res = 130)
+  par(mar = c(4.2, 4.8, 3.2, 1.2), mgp = c(2.7, 0.8, 0))
+
+  plot(
+    solar_df$date, solar_df$Y,
+    type = "o", pch = 1,
+    ylim = ylim,
+    xlim = range(c(solar_df$date, future_dates)),
+    xlab = "Time",
+    ylab = "Generation (MWh)",
+    main = "Observed series, forecasts, and 95% prediction intervals",
+    sub = "12-month ahead forecasts from the specified seasonal AR model"
   )
   grid()
 
@@ -335,6 +358,7 @@ run_solar_part2 <- function(
 
   residual_df <- compute_one_step_residuals(X, phi1 = phi1, Phi1 = Phi1)
   forecast_x <- forecast_seasonal_ar(X, h = h, phi1 = phi1, Phi1 = Phi1)
+
   forecast_tab <- compute_ar1_prediction_intervals(
     x_forecast = forecast_x,
     mu = mu,
@@ -351,14 +375,40 @@ run_solar_part2 <- function(
 
   diag_tab <- residual_test_table(residual_df$eps_hat)
 
+  # Separate tables for 2.2 and 2.3
+  forecast_only_tab <- forecast_tab[, c("horizon", "date", "forecast")]
+  forecast_pi_tab <- forecast_tab[, c("horizon", "date", "forecast", "lower", "upper", "pred_se")]
+
   # Save outputs
-  save_observed_plot(solar_df, file.path(figure_dir, "part2_observed_solar_series.png"))
-  save_residual_diagnostics_plot(solar_df, residual_df, file.path(figure_dir, "part2_residual_diagnostics.png"))
-  save_forecast_plot(solar_df, forecast_tab, file.path(figure_dir, "part2_forecast_with_intervals.png"))
+  save_observed_plot(
+    solar_df,
+    file.path(figure_dir, "part2_observed_solar_series.png")
+  )
+  save_residual_diagnostics_plot(
+    solar_df,
+    residual_df,
+    file.path(figure_dir, "part2_residual_diagnostics.png")
+  )
+  save_forecast_only_plot(
+    solar_df,
+    forecast_tab,
+    file.path(figure_dir, "part2_forecast_only.png")
+  )
+  save_forecast_interval_plot(
+    solar_df,
+    forecast_tab,
+    file.path(figure_dir, "part2_forecast_with_intervals.png")
+  )
 
   write.csv(
-    forecast_tab[, c("horizon", "date", "forecast", "lower", "upper", "pred_se")],
+    forecast_only_tab,
     file.path(table_dir, "part2_solar_forecast_table.csv"),
+    row.names = FALSE
+  )
+
+  write.csv(
+    forecast_pi_tab,
+    file.path(table_dir, "part2_solar_forecast_intervals_table.csv"),
     row.names = FALSE
   )
 
@@ -374,6 +424,8 @@ run_solar_part2 <- function(
       X = X,
       residuals = residual_df,
       forecast = forecast_tab,
+      forecast_only = forecast_only_tab,
+      forecast_intervals = forecast_pi_tab,
       diagnostics = diag_tab,
       parameters = list(phi1 = phi1, Phi1 = Phi1, mu = mu, sigma2_eps = sigma2_eps)
     ),
@@ -386,8 +438,9 @@ run_solar_part2 <- function(
       X = X,
       residuals = residual_df,
       forecast = forecast_tab,
+      forecast_only = forecast_only_tab,
+      forecast_intervals = forecast_pi_tab,
       diagnostics = diag_tab
     )
   )
 }
-
