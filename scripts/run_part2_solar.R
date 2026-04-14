@@ -49,3 +49,6 @@ cat("  - output/tables/part2_solar_forecast_table.csv\n")
 cat("  - output/tables/part2_solar_forecast_intervals_table.csv\n")
 cat("  - output/tables/part2_residual_diagnostic_tests.csv\n")
 cat("  - output/models/part2_solar_results.rds\n")
+
+
+
