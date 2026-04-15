@@ -146,16 +146,21 @@ md_add("**ACF Ph:** slow exponential decay — strong AR dynamics needed")
 md_add("**PACF Ph:** cuts off sharply after lag 1–2 — suggests low-order AR")
 md_add("**Raw CCF Tdelta→Ph:** positive at lag 0, persists several lags")
 md_add("**Raw CCF Gv→Ph:** strongly negative at lag 0 (solar gain replaces heating)")
-md_add("**Note:** raw CCF is biased when input is autocorrelated — see prewhitened version in 3.4\n")
+md_add("**Note:** raw CCF is only exploratory here; in 3.4 the impulse responses are estimated jointly by FIR regression rather than pre-whitened CCF\n")
 
 # ---------------------------------------------------------------------------
 # 3.4  Impulse response via joint FIR regression (lags 0..10 for both inputs)
 # ---------------------------------------------------------------------------
 max_lag_ir <- 10
 
-fir_dat <- data.frame(
-  Ph = train$Ph
-)
+# helper for lag creation
+lag_vec <- function(x, k) {
+  if (k == 0) return(x)
+  c(rep(NA, k), x[1:(length(x) - k)])
+}
+
+# build FIR data set
+fir_dat <- data.frame(Ph = train$Ph)
 
 for (k in 0:max_lag_ir) {
   fir_dat[[paste0("Tdelta_l", k)]] <- lag_vec(train$Tdelta, k)
@@ -164,24 +169,51 @@ for (k in 0:max_lag_ir) {
 
 fir_dat <- na.omit(fir_dat)
 
+cat("Rows in FIR data after na.omit:", nrow(fir_dat), "\n")
+stopifnot(nrow(fir_dat) > 0)
+
 fit_fir <- lm(Ph ~ . - 1, data = fir_dat)
+
 cat("\n--- 3.4 Joint FIR regression ---\n")
 print(summary(fit_fir))
 
-save_coef_tex(fit_fir,
-              file    = "report/tables/q3_34_fir_coef.tex",
-              caption = "Estimated FIR coefficients for the joint impulse-response model in 3.4.",
-              label   = "tab:q3_fir_coef")
+save_coef_tex(
+  fit_fir,
+  file    = "report/tables/q3_34_fir_coef.tex",
+  caption = "Estimated FIR coefficients for the joint impulse-response model in 3.4.",
+  label   = "tab:q3_fir_coef"
+)
 
+# inspect coefficient names
 coef_hat <- coef(fit_fir)
-h_T <- coef_hat[paste0("Tdelta_l", 0:max_lag_ir)]
-h_G <- coef_hat[paste0("Gv_l", 0:max_lag_ir)]
+cat("Coefficient names in fit_fir:\n")
+print(names(coef_hat))
+
+# extract coefficients by grep, then sort by lag number
+get_ir <- function(coefs, prefix, max_lag) {
+  nm <- names(coefs)
+  idx <- grep(paste0("^", prefix, "[0-9]+$"), nm)
+  stopifnot(length(idx) > 0)
+
+  vals <- coefs[idx]
+  lags <- as.integer(sub(prefix, "", names(vals)))
+  ord  <- order(lags)
+
+  out <- rep(NA_real_, max_lag + 1)
+  out[lags[ord] + 1] <- as.numeric(vals[ord])
+  out
+}
+
+h_T <- get_ir(coef_hat, "Tdelta_l", max_lag_ir)
+h_G <- get_ir(coef_hat, "Gv_l", max_lag_ir)
 
 irf_df <- data.frame(
   lag      = 0:max_lag_ir,
-  TdeltaIR = as.numeric(h_T),
-  GvIR     = as.numeric(h_G)
+  TdeltaIR = h_T,
+  GvIR     = h_G
 )
+
+print(irf_df)
 
 write.csv(irf_df, "output/tables/q3_34_impulse_response.csv", row.names = FALSE)
 
@@ -193,7 +225,7 @@ plot(irf_df$lag, irf_df$TdeltaIR,
      type = "h", lwd = 3,
      xlab = "Lag (hours)",
      ylab = expression(h[Tdelta](k)),
-     main = expression("Impulse response:  " * T[Delta] %->% P[h]))
+     main = expression("Impulse response: " * T[Delta] %->% P[h]))
 abline(h = 0, lty = 2)
 grid()
 
@@ -201,16 +233,17 @@ plot(irf_df$lag, irf_df$GvIR,
      type = "h", lwd = 3,
      xlab = "Lag (hours)",
      ylab = expression(h[Gv](k)),
-     main = expression("Impulse response:  " * G[v] %->% P[h]))
+     main = expression("Impulse response: " * G[v] %->% P[h]))
 abline(h = 0, lty = 2)
 grid()
+
 dev.off()
 
 peak_T_lag <- irf_df$lag[which.max(abs(irf_df$TdeltaIR))]
 peak_G_lag <- irf_df$lag[which.max(abs(irf_df$GvIR))]
 
 md_add("## 3.4 Impulse Response (Joint FIR Regression)")
-md_add("**Figure:** `report/figures/q3_34_impulse_response.pdf`")
+md_add("**Figure:** `report/figures/q3_34_impulse_response.png`")
 md_add("**Table:** `report/tables/q3_34_fir_coef.tex`")
 md_add("**CSV output:** `output/tables/q3_34_impulse_response.csv`")
 md_add("**Method:** joint FIR regression with lags 0–10 for both Tdelta and Gv")
