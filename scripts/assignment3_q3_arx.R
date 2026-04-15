@@ -149,54 +149,73 @@ md_add("**Raw CCF Gv→Ph:** strongly negative at lag 0 (solar gain replaces hea
 md_add("**Note:** raw CCF is biased when input is autocorrelated — see prewhitened version in 3.4\n")
 
 # ---------------------------------------------------------------------------
-# 3.4  Impulse response via prewhitening (Textbook §8.7, p.269)
+# 3.4  Impulse response via joint FIR regression (lags 0..10 for both inputs)
 # ---------------------------------------------------------------------------
 max_lag_ir <- 10
 
-apply_ar_filter <- function(x, ar_fit) {
-  p <- ar_fit$order
-  if (p == 0L) return(x)
-  n   <- length(x)
-  out <- x[(p + 1):n]
-  for (k in seq_len(p)) out <- out - ar_fit$ar[k] * x[(p + 1 - k):(n - k)]
-  out
+fir_dat <- data.frame(
+  Ph = train$Ph
+)
+
+for (k in 0:max_lag_ir) {
+  fir_dat[[paste0("Tdelta_l", k)]] <- lag_vec(train$Tdelta, k)
+  fir_dat[[paste0("Gv_l", k)]]     <- lag_vec(train$Gv, k)
 }
 
-ar_td <- ar(train$Tdelta, order.max = 15, aic = TRUE, method = "ols")
-ar_gv <- ar(train$Gv,     order.max = 15, aic = TRUE, method = "ols")
-cat("AR order selected — Tdelta:", ar_td$order, " | Gv:", ar_gv$order, "\n")
+fir_dat <- na.omit(fir_dat)
 
-alpha_td <- apply_ar_filter(train$Tdelta, ar_td)
-beta_td  <- apply_ar_filter(train$Ph,     ar_td)
-alpha_gv <- apply_ar_filter(train$Gv,     ar_gv)
-beta_gv  <- apply_ar_filter(train$Ph,     ar_gv)
+fit_fir <- lm(Ph ~ . - 1, data = fir_dat)
+cat("\n--- 3.4 Joint FIR regression ---\n")
+print(summary(fit_fir))
+
+save_coef_tex(fit_fir,
+              file    = "report/tables/q3_34_fir_coef.tex",
+              caption = "Estimated FIR coefficients for the joint impulse-response model in 3.4.",
+              label   = "tab:q3_fir_coef")
+
+coef_hat <- coef(fit_fir)
+h_T <- coef_hat[paste0("Tdelta_l", 0:max_lag_ir)]
+h_G <- coef_hat[paste0("Gv_l", 0:max_lag_ir)]
+
+irf_df <- data.frame(
+  lag      = 0:max_lag_ir,
+  TdeltaIR = as.numeric(h_T),
+  GvIR     = as.numeric(h_G)
+)
+
+write.csv(irf_df, "output/tables/q3_34_impulse_response.csv", row.names = FALSE)
 
 pdf("report/figures/q3_34_impulse_response.pdf", width = FW, height = FH_S)
 par(mfrow = c(1, 2), mar = c(4.5, 4.5, 2.2, 1))
 
-ccf(alpha_td, beta_td, lag.max = max_lag_ir,
-    main = expression("Impulse response:  " * T[Delta] %->% P[h]),
-    ylab = "CCF")
+plot(irf_df$lag, irf_df$TdeltaIR,
+     type = "h", lwd = 3,
+     xlab = "Lag (hours)",
+     ylab = expression(h[Tdelta](k)),
+     main = expression("Impulse response:  " * T[Delta] %->% P[h]))
+abline(h = 0, lty = 2)
 grid()
 
-ccf(alpha_gv, beta_gv, lag.max = max_lag_ir,
-    main = expression("Impulse response:  " * G[v] %->% P[h]),
-    ylab = "CCF")
+plot(irf_df$lag, irf_df$GvIR,
+     type = "h", lwd = 3,
+     xlab = "Lag (hours)",
+     ylab = expression(h[Gv](k)),
+     main = expression("Impulse response:  " * G[v] %->% P[h]))
+abline(h = 0, lty = 2)
 grid()
 dev.off()
 
-ir_td_ccf <- ccf(alpha_td, beta_td, lag.max = max_lag_ir, plot = FALSE)
-ir_gv_ccf <- ccf(alpha_gv, beta_gv, lag.max = max_lag_ir, plot = FALSE)
+peak_T_lag <- irf_df$lag[which.max(abs(irf_df$TdeltaIR))]
+peak_G_lag <- irf_df$lag[which.max(abs(irf_df$GvIR))]
 
-md_add("## 3.4 Impulse Response (Prewhitening)")
+md_add("## 3.4 Impulse Response (Joint FIR Regression)")
 md_add("**Figure:** `report/figures/q3_34_impulse_response.pdf`")
-md_add("**AR order used to prewhiten Tdelta:** ", ar_td$order)
-md_add("**AR order used to prewhiten Gv:** ", ar_gv$order)
-md_add("**Tdelta IR peak lag:** ", ir_td_ccf$lag[which.max(abs(ir_td_ccf$acf))],
-       " h, CCF = ", round(max(abs(ir_td_ccf$acf)), 3))
-md_add("**Gv IR peak lag:** ", ir_gv_ccf$lag[which.max(abs(ir_gv_ccf$acf))],
-       " h, CCF = ", round(max(abs(ir_gv_ccf$acf)), 3), "\n")
-
+md_add("**Table:** `report/tables/q3_34_fir_coef.tex`")
+md_add("**CSV output:** `output/tables/q3_34_impulse_response.csv`")
+md_add("**Method:** joint FIR regression with lags 0–10 for both Tdelta and Gv")
+md_add("**Largest |Tdelta impulse-response coefficient| at lag:** ", peak_T_lag, " h")
+md_add("**Largest |Gv impulse-response coefficient| at lag:** ", peak_G_lag, " h")
+md_add("**Comment:** pre-whitened CCF is a standard textbook identification idea for single-input transfer-function models, but with two potentially correlated inputs it is less reliable. Therefore the impulse responses are estimated jointly here through finite distributed lags.\n")
 # ---------------------------------------------------------------------------
 # Helper: 2×3 diagnostic panel used for both 3.5 and 3.6
 # ---------------------------------------------------------------------------
