@@ -185,7 +185,8 @@ irf_df <- data.frame(
 
 write.csv(irf_df, "output/tables/q3_34_impulse_response.csv", row.names = FALSE)
 
-pdf("report/figures/q3_34_impulse_response.pdf", width = FW, height = FH_S)
+png("report/figures/q3_34_impulse_response.png",
+    width = FW, height = FH_S, units = "in", res = 300)
 par(mfrow = c(1, 2), mar = c(4.5, 4.5, 2.2, 1))
 
 plot(irf_df$lag, irf_df$TdeltaIR,
