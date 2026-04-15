@@ -225,7 +225,8 @@ plot(irf_df$lag, irf_df$TdeltaIR,
      type = "h", lwd = 3,
      xlab = "Lag (hours)",
      ylab = expression(h[Tdelta](k)),
-     main = expression("Impulse response: " * T[Delta] %->% P[h]))
+     main = expression("Impulse response: " * T[Delta] %->% P[h]),
+     cex.main = 0.8)
 abline(h = 0, lty = 2)
 grid()
 
@@ -233,7 +234,8 @@ plot(irf_df$lag, irf_df$GvIR,
      type = "h", lwd = 3,
      xlab = "Lag (hours)",
      ylab = expression(h[Gv](k)),
-     main = expression("Impulse response: " * G[v] %->% P[h]))
+     main = expression("Impulse response: " * G[v] %->% P[h]),
+     cex.main = 0.8)
 abline(h = 0, lty = 2)
 grid()
 
