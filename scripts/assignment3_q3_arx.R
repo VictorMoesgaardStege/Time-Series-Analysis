@@ -255,40 +255,105 @@ md_add("**Comment:** pre-whitened CCF is a standard textbook identification idea
 # ---------------------------------------------------------------------------
 # Helper: 2×3 diagnostic panel used for both 3.5 and 3.6
 # ---------------------------------------------------------------------------
-plot_diagnostics <- function(fit, tdate, Tdelta, Gv, title_prefix) {
+plot_diagnostics <- function(fit, tdate, Tdelta, Gv) {
   res  <- residuals(fit)
   fitt <- fitted(fit)
-  obs  <- fitt + res          # same as the response
+  obs  <- fitt + res
 
-  # Panel 1: observed vs fitted
-  plot(tdate, obs, type = "l", lwd = LWD, col = COL_OBS,
-       ylab = expression(P[h]~(W)), xlab = "Time",
-       main = bquote(.(title_prefix) * ": observed vs fitted"))
-  lines(tdate, fitt, lwd = LWD, col = COL_FIT, lty = 2)
-  legend("topright", c("Observed", "Fitted"),
-         col = c(COL_OBS, COL_FIT), lty = 1:2, lwd = LWD, bty = "n")
+  old_par <- par(no.readonly = TRUE)
+  on.exit(par(old_par))
+
+  layout(
+    matrix(c(
+      1, 1,
+      2, 2,
+      3, 4,
+      5, 6
+    ), nrow = 4, byrow = TRUE),
+    heights = c(2.1, 1.5, 1.5, 1.5)
+  )
+
+  par(
+    mar = c(4.2, 4.2, 0.8, 0.8),
+    cex.lab  = 0.5,
+    cex.axis = 0.5
+  )
+
+  label_cex <- 0.5
+
+  # (a) Fitted vs actual values
+  plot(tdate, obs,
+       type = "l",
+       lwd  = LWD,
+       col  = COL_OBS,
+       ylab = expression(P[h] ~ (W)),
+       xlab = "")
+  lines(tdate, fitt,
+        lwd = LWD,
+        col = "forestgreen",
+        lty = 2)
+  legend("topleft",
+         legend = c("Observed", "Fitted"),
+         col    = c(COL_OBS, "forestgreen"),
+         lty    = c(1, 2),
+         lwd    = LWD,
+         bty    = "n",
+         cex    = 0.8)   # ← smaller text)
   grid()
+  mtext("Time", side = 1, line = 1.5, cex = par("cex.lab"))
+  mtext("(a) Fitted vs actual values", side = 1, line = 2.4, cex = label_cex)
 
-  # Panel 2: residuals over time
-  plot(tdate, res, type = "l", lwd = LWD,
-       ylab = "Residual (W)", xlab = "Time",
-       main = "Residuals over time")
+
+  # (b) Residuals over time
+  plot(tdate, res,
+       type = "l",
+       lwd  = LWD,
+       col  = "black",
+       ylab = "Residual (W)",
+       xlab = "")
   abline(h = 0, col = "gray50", lwd = 1)
   grid()
+  mtext("Time", side = 1, line = 1.5, cex = par("cex.lab"))
+  mtext("(b) Residuals over time", side = 1, line = 2.4, cex = label_cex)
 
-  # Panels 3–6: ACF, PACF, CCF
-  acf(res,  lag.max = 24, main = "ACF of residuals")
-  grid()
-  pacf(res, lag.max = 24, main = "PACF of residuals")
-  grid()
-  ccf(Tdelta, res, lag.max = 24,
-      main = expression("CCF:  " * T[Delta]~vs~residuals), ylab = "CCF")
-  grid()
-  ccf(Gv, res, lag.max = 24,
-      main = expression("CCF:  " * G[v]~vs~residuals), ylab = "CCF")
-  grid()
+  # (c) ACF
+  acf(res,
+      lag.max = 24,
+      main    = "",
+      ylab    = "ACF",
+      xlab    = "")
+     mtext("Lag", side = 1, line = 1.2, cex = par("cex.lab"))
+     mtext("(c) ACF plot", side = 1, line = 2.4, cex = label_cex)
+     #   mtext("(c) ACF", side = 1, line = 2.8, cex = label_cex)
+
+
+  # (d) PACF
+  pacf(res,
+       lag.max = 24,
+       main    = "",
+       ylab    = "Partial ACF",
+       xlab    = "")
+     mtext("Lag", side = 1, line = 1.5, cex = par("cex.lab"))
+     mtext("(d) PACF plot", side = 1, line = 2.8, cex = label_cex)
+
+  # (e) CCF: Tdelta
+  ccf(Tdelta, res,
+      lag.max = 24,
+      main    = "",
+      ylab    = "CCF",
+      xlab    = "")
+     mtext("Lag", side = 1, line = 1.5, cex = par("cex.lab"))
+     mtext("(e) CCF: Tdelta", side = 1, line = 2.8, cex = label_cex)
+
+  # (f) CCF: Gv
+  ccf(Gv, res,
+      lag.max = 24,
+      main    = "",
+      ylab    = "CCF",
+      xlab    = "")
+     mtext("Lag", side = 1, line = 1.5, cex = par("cex.lab"))
+     mtext("(f) CCF: Gv", side = 1, line = 2.8, cex = label_cex)
 }
-
 # ---------------------------------------------------------------------------
 # 3.5  Linear regression: Ph = omega1*Tdelta + omega2*Gv + epsilon
 # ---------------------------------------------------------------------------
@@ -302,8 +367,7 @@ save_coef_tex(fit_lm,
 
 pdf("report/figures/q3_35_lm_diagnostics.pdf", width = FW, height = FH_D)
 par(mfrow = c(2, 3), mar = c(4, 4.5, 2.2, 1))
-plot_diagnostics(fit_lm, train$tdate, train$Tdelta, train$Gv,
-                 title_prefix = "OLS")
+plot_diagnostics(fit_lm, train$tdate, train$Tdelta, train$Gv)
 dev.off()
 
 lm_s    <- summary(fit_lm)
@@ -333,8 +397,7 @@ save_coef_tex(fit_arx1,
 
 pdf("report/figures/q3_36_arx1_diagnostics.pdf", width = FW, height = FH_D)
 par(mfrow = c(2, 3), mar = c(4, 4.5, 2.2, 1))
-plot_diagnostics(fit_arx1, train$tdate, train$Tdelta, train$Gv,
-                 title_prefix = "ARX(1)")
+plot_diagnostics(fit_arx1, train$tdate, train$Tdelta, train$Gv)
 dev.off()
 
 arx1_s    <- summary(fit_arx1)

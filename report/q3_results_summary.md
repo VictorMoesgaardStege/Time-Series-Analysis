@@ -18,14 +18,16 @@
 **PACF Ph:** cuts off sharply after lag 1–2 — suggests low-order AR
 **Raw CCF Tdelta→Ph:** positive at lag 0, persists several lags
 **Raw CCF Gv→Ph:** strongly negative at lag 0 (solar gain replaces heating)
-**Note:** raw CCF is biased when input is autocorrelated — see prewhitened version in 3.4
+**Note:** raw CCF is only exploratory here; in 3.4 the impulse responses are estimated jointly by FIR regression rather than pre-whitened CCF
 
-## 3.4 Impulse Response (Prewhitening)
-**Figure:** `report/figures/q3_34_impulse_response.pdf`
-**AR order used to prewhiten Tdelta:** 2
-**AR order used to prewhiten Gv:** 1
-**Tdelta IR peak lag:** 0 h, CCF = 0.5
-**Gv IR peak lag:** 0 h, CCF = 0.837
+## 3.4 Impulse Response (Joint FIR Regression)
+**Figure:** `report/figures/q3_34_impulse_response.png`
+**Table:** `report/tables/q3_34_fir_coef.tex`
+**CSV output:** `output/tables/q3_34_impulse_response.csv`
+**Method:** joint FIR regression with lags 0–10 for both Tdelta and Gv
+**Largest |Tdelta impulse-response coefficient| at lag:** 3 h
+**Largest |Gv impulse-response coefficient| at lag:** 0 h
+**Comment:** pre-whitened CCF is a standard textbook identification idea for single-input transfer-function models, but with two potentially correlated inputs it is less reliable. Therefore the impulse responses are estimated jointly here through finite distributed lags.
 
 ## 3.5 Linear Regression (no AR)
 **Figure:** `report/figures/q3_35_lm_diagnostics.pdf`
