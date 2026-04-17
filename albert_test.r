@@ -1,5 +1,5 @@
 # Read the data
-df <- read.csv("box_data_60min.csv", stringsAsFactors = FALSE)
+df <- read.csv("data/box_data_60min.csv", stringsAsFactors = FALSE)
 
 # Convert timestamp column to datetime
 df$tdate <- as.POSIXct(df$tdate, format = "%Y-%m-%d %H:%M:%S", tz = "UTC")
