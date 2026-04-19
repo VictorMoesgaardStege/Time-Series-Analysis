@@ -29,29 +29,32 @@
 **Largest |Gv impulse-response coefficient| at lag:** 0 h
 **Comment:** pre-whitened CCF is a standard textbook identification idea for single-input transfer-function models, but with two potentially correlated inputs it is less reliable. Therefore the impulse responses are estimated jointly here through finite distributed lags.
 
-## 3.5 Linear Regression (no AR)
+## 3.5 Linear Regression (no intercept)
 **Figure:** `report/figures/q3_35_lm_diagnostics.pdf`
 **Table:** `report/tables/q3_35_lm_coef.tex`
+**Model fitted:** $Ph_t = \omega_1 T_{\Delta,t} + \omega_2 G_{v,t} + \varepsilon_t$
 **R²:** 0.9945 | **Adj R²:** 0.9944
 **Residual std error:** 5.44 W
 **omega1 (Tdelta):** 3.8948 (p=2.79e-186)
 **omega2 (Gv):** -0.1099 (p=1.66e-61)
 **Residual ACF:** significant autocorrelation remains → AR terms needed
-**Residual CCF:** structure visible vs both inputs → transfer function model needed
+**Residual CCF:** remaining structure vs inputs suggests a dynamic model is needed
 
-## 3.6 ARX(1)
+## 3.6 ARX(1) (no intercept)
 **Figure:** `report/figures/q3_36_arx1_diagnostics.pdf`
 **Table:** `report/tables/q3_36_arx1_coef.tex`
+**Model fitted:** $Ph_t = \beta_1 Ph_{t-1} + \omega_1 T_{\Delta,t} + \omega_2 G_{v,t} + \varepsilon_t$, with $\phi_1 = -\beta_1$
 **R²:** 0.9987 | **Adj R²:** 0.9986
 **Residual std error:** 2.697 W
-**phi1 (Ph.l1):** 0.4187 (p=4.61e-52)
+**beta1 (coefficient on Ph.l1):** 0.4187 (thus phi1 = -0.4187)
 **omega1 (Tdelta):** 2.3121 (p=2.58e-73)
 **omega2 (Gv):** -0.0836 (p=1.17e-78)
-**Improvement over OLS:** residual autocorrelation substantially reduced
+**Improvement over 3.5:** residual autocorrelation is reduced, showing that lagged heating contributes importantly to the dynamics
 
 ## 3.7 Model Order Selection (AIC / BIC)
 **Figure:** `report/figures/q3_37_aic_bic.pdf`
 **Table:** `report/tables/q3_37_ic.tex`
+**All ARX models were fitted without intercept to match the assignment specification.**
 **Best order by AIC:** 6 (AIC = 703.26)
 **Best order by BIC:** 5 (BIC = 759.28)
 **AIC values (p=1..10):** 810.3, 760.1, 741.5, 722, 709.4, 703.3, 707.3, 710.5, 712.8, 707.6
@@ -61,6 +64,7 @@
 **Figure:** `report/figures/q3_38_rmse.pdf`
 **Table:** `report/tables/q3_38_rmse.tex`
 **Best order by RMSE:** 3 (RMSE = 2.8755 W)
+**All RMSE comparisons are based on no-intercept ARX models.**
 **RMSE values (p=1..10):** 3.752, 3.245, 2.875, 3.039, 3.126, 3.332, 3.323, 3.269, 3.26, 3.302
 
 ## 3.9 Multi-Step Simulation
