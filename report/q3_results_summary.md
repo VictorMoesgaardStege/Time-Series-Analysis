@@ -32,69 +32,65 @@
 ## 3.5 Linear Regression (no AR)
 **Figure:** `report/figures/q3_35_lm_diagnostics.pdf`
 **Table:** `report/tables/q3_35_lm_coef.tex`
-**R²:** 0.8981 | **Adj R²:** 0.8968
-**Residual std error:** 5.182 W
-**omega1 (Tdelta):** 3.3357 (p=1.91e-57)
-**omega2 (Gv):** -0.1114 (p=1.05e-64)
+**R²:** 0.9945 | **Adj R²:** 0.9944
+**Residual std error:** 5.44 W
+**omega1 (Tdelta):** 3.8948 (p=2.79e-186)
+**omega2 (Gv):** -0.1099 (p=1.66e-61)
 **Residual ACF:** significant autocorrelation remains → AR terms needed
 **Residual CCF:** structure visible vs both inputs → transfer function model needed
 
 ## 3.6 ARX(1)
 **Figure:** `report/figures/q3_36_arx1_diagnostics.pdf`
 **Table:** `report/tables/q3_36_arx1_coef.tex`
-**R²:** 0.9749 | **Adj R²:** 0.9744
-**Residual std error:** 2.581 W
-**phi1 (Ph.l1):** 0.4046 (p=2.02e-51)
-**omega1 (Tdelta):** 2.096 (p=1.31e-55)
-**omega2 (Gv):** -0.0851 (p=2.3e-81)
+**R²:** 0.9987 | **Adj R²:** 0.9986
+**Residual std error:** 2.697 W
+**phi1 (Ph.l1):** 0.4187 (p=4.61e-52)
+**omega1 (Tdelta):** 2.3121 (p=2.58e-73)
+**omega2 (Gv):** -0.0836 (p=1.17e-78)
 **Improvement over OLS:** residual autocorrelation substantially reduced
 
 ## 3.7 Model Order Selection (AIC / BIC)
 **Figure:** `report/figures/q3_37_aic_bic.pdf`
 **Table:** `report/tables/q3_37_ic.tex`
-**Best order by AIC:** 6 (AIC = 688.73)
-**Best order by BIC:** 6 (BIC = 751.09)
-**AIC values (p=1..10):** 796.6, 750.7, 734.7, 709.9, 702.4, 688.7, 690.3, 695.1, 699.4, 698.9
-**BIC values (p=1..10):** 812.2, 775.6, 769, 753.6, 755.4, 751.1, 762, 776.2, 789.9, 798.6
+**Best order by AIC:** 6 (AIC = 703.26)
+**Best order by BIC:** 5 (BIC = 759.28)
+**AIC values (p=1..10):** 810.3, 760.1, 741.5, 722, 709.4, 703.3, 707.3, 710.5, 712.8, 707.6
+**BIC values (p=1..10):** 822.7, 782, 772.7, 762.5, 759.3, 762.5, 775.9, 788.5, 800.1, 804.3
 
 ## 3.8 Test-Set RMSE vs. Model Order
 **Figure:** `report/figures/q3_38_rmse.pdf`
 **Table:** `report/tables/q3_38_rmse.tex`
-**Best order by RMSE:** 3 (RMSE = 2.8304 W)
-**RMSE values (p=1..10):** 3.663, 3.195, 2.83, 2.958, 3.046, 3.314, 3.283, 3.274, 3.282, 3.301
+**Best order by RMSE:** 3 (RMSE = 2.8755 W)
+**RMSE values (p=1..10):** 3.752, 3.245, 2.875, 3.039, 3.126, 3.332, 3.323, 3.269, 3.26, 3.302
 
 ## 3.9 Multi-Step Simulation
 **Figure:** `report/figures/q3_39_multistep_simulation.pdf`
-**Table (coefficients):** `report/tables/q3_39_arx6_coef.tex`
-**Model used:** ARX(6)
-**Simulation RMSE — training period:** 1.769 W
-**Simulation RMSE — test period:** 3.404 W
+**Table (coefficients):** `report/tables/q3_39_arx5_coef.tex`
+**Model used:** ARX(5)
+**Simulation RMSE — training period:** 2.076 W
+**Simulation RMSE — test period:** 3.732 W
 **Coefficients:**
-  - (Intercept): 4.9112
-  - Ph.l1: 0.2599
-  - Ph.l2: -0.0922
-  - Ph.l3: -0.0551
-  - Ph.l4: 0.0384
-  - Ph.l5: 0.0786
-  - Ph.l6: 0.0115
-  - Tdelta.l0: 0.1061
-  - Tdelta.l1: 1.6519
-  - Tdelta.l2: -0.7116
-  - Tdelta.l3: 2.6783
-  - Tdelta.l4: -2.4155
-  - Tdelta.l5: 1.5028
-  - Gv.l0: -0.0997
-  - Gv.l1: -0.0013
-  - Gv.l2: -0.0141
-  - Gv.l3: 0.0024
-  - Gv.l4: -0.0124
-  - Gv.l5: 0.0078
+  - Ph.l1: 0.2898
+  - Ph.l2: 0.0443
+  - Ph.l3: 0.0322
+  - Ph.l4: 0.1381
+  - Ph.l5: 0.0214
+  - Tdelta.l0: 0.3702
+  - Tdelta.l1: 1.483
+  - Tdelta.l2: -0.5818
+  - Tdelta.l3: 2.0902
+  - Tdelta.l4: -1.4383
+  - Gv.l0: -0.0989
+  - Gv.l1: -2e-04
+  - Gv.l2: 8e-04
+  - Gv.l3: 0.0124
+  - Gv.l4: 0.0069
 
 ## 3.10 Summary
 | Criterion | Best order |
 |-----------|------------|
 | AIC       | 6 |
-| BIC       | 6 |
+| BIC       | 5 |
 | Test RMSE | 3 |
-| Chosen    | 6 (BIC) |
+| Chosen    | 5 (BIC) |
 

@@ -355,26 +355,48 @@ plot_diagnostics <- function(fit, tdate, Tdelta, Gv) {
      mtext("(f) CCF: Gv", side = 1, line = 2.8, cex = label_cex)
 }
 # ---------------------------------------------------------------------------
+# Helper: build no-intercept ARX formula of order p
+# ---------------------------------------------------------------------------
+build_arx_formula <- function(response = "Ph", p, data_names) {
+  regs <- intersect(
+    c(
+      paste0("Ph.l", 1:p),
+      paste0("Tdelta.l", 0:(p - 1)),
+      paste0("Gv.l", 0:(p - 1))
+    ),
+    data_names
+  )
+
+  as.formula(
+    paste(response, "~", paste(regs, collapse = " + "), "- 1")
+  )
+}
+
+# ---------------------------------------------------------------------------
 # 3.5  Linear regression: Ph = omega1*Tdelta + omega2*Gv + epsilon
 # ---------------------------------------------------------------------------
 fit_lm <- lm(Ph ~ Tdelta + Gv - 1, data = train)
-cat("\n--- 3.5 Linear regression ---\n"); print(summary(fit_lm))
+cat("\n--- 3.5 Linear regression (no intercept) ---\n")
+print(summary(fit_lm))
 
-save_coef_tex(fit_lm,
-              file    = "report/tables/q3_35_lm_coef.tex",
-              caption = "OLS coefficient estimates for the linear regression model (3.5).",
-              label   = "tab:lm_coef")
+save_coef_tex(
+  fit_lm,
+  file    = "report/tables/q3_35_lm_coef.tex",
+  caption = "OLS coefficient estimates for the no-intercept linear regression model (3.5).",
+  label   = "tab:lm_coef"
+)
 
 pdf("report/figures/q3_35_lm_diagnostics.pdf", width = FW, height = FH_D)
-par(mfrow = c(2, 3), mar = c(4, 4.5, 2.2, 1))
 plot_diagnostics(fit_lm, train$tdate, train$Tdelta, train$Gv)
 dev.off()
 
 lm_s    <- summary(fit_lm)
 lm_coef <- coef(lm_s)
-md_add("## 3.5 Linear Regression (no AR)")
+
+md_add("## 3.5 Linear Regression (no intercept)")
 md_add("**Figure:** `report/figures/q3_35_lm_diagnostics.pdf`")
 md_add("**Table:** `report/tables/q3_35_lm_coef.tex`")
+md_add("**Model fitted:** $Ph_t = \\omega_1 T_{\\Delta,t} + \\omega_2 G_{v,t} + \\varepsilon_t$")
 md_add("**R²:** ", round(lm_s$r.squared, 4), " | **Adj R²:** ", round(lm_s$adj.r.squared, 4))
 md_add("**Residual std error:** ", round(lm_s$sigma, 3), " W")
 md_add("**omega1 (Tdelta):** ", round(lm_coef["Tdelta","Estimate"],4),
@@ -382,38 +404,45 @@ md_add("**omega1 (Tdelta):** ", round(lm_coef["Tdelta","Estimate"],4),
 md_add("**omega2 (Gv):** ", round(lm_coef["Gv","Estimate"],4),
        " (p=", format(lm_coef["Gv","Pr(>|t|)"], digits=3), ")")
 md_add("**Residual ACF:** significant autocorrelation remains → AR terms needed")
-md_add("**Residual CCF:** structure visible vs both inputs → transfer function model needed\n")
+md_add("**Residual CCF:** remaining structure vs inputs suggests a dynamic model is needed\n")
 
 # ---------------------------------------------------------------------------
 # 3.6  ARX(1): Ph = -phi1*Ph_{t-1} + omega1*Tdelta + omega2*Gv + epsilon
 # ---------------------------------------------------------------------------
 fit_arx1 <- lm(Ph ~ Ph.l1 + Tdelta + Gv - 1, data = train)
-cat("\n--- 3.6 ARX(1) ---\n"); print(summary(fit_arx1))
+cat("\n--- 3.6 ARX(1) (no intercept) ---\n")
+print(summary(fit_arx1))
 
-save_coef_tex(fit_arx1,
-              file    = "report/tables/q3_36_arx1_coef.tex",
-              caption = "OLS coefficient estimates for the ARX(1) model (3.6).",
-              label   = "tab:arx1_coef")
+save_coef_tex(
+  fit_arx1,
+  file    = "report/tables/q3_36_arx1_coef.tex",
+  caption = "OLS coefficient estimates for the no-intercept ARX(1) model (3.6).",
+  label   = "tab:arx1_coef"
+)
 
 pdf("report/figures/q3_36_arx1_diagnostics.pdf", width = FW, height = FH_D)
-par(mfrow = c(2, 3), mar = c(4, 4.5, 2.2, 1))
 plot_diagnostics(fit_arx1, train$tdate, train$Tdelta, train$Gv)
 dev.off()
 
 arx1_s    <- summary(fit_arx1)
 arx1_coef <- coef(arx1_s)
-md_add("## 3.6 ARX(1)")
+
+beta1_hat <- arx1_coef["Ph.l1","Estimate"]
+phi1_hat  <- -beta1_hat
+
+md_add("## 3.6 ARX(1) (no intercept)")
 md_add("**Figure:** `report/figures/q3_36_arx1_diagnostics.pdf`")
 md_add("**Table:** `report/tables/q3_36_arx1_coef.tex`")
+md_add("**Model fitted:** $Ph_t = \\beta_1 Ph_{t-1} + \\omega_1 T_{\\Delta,t} + \\omega_2 G_{v,t} + \\varepsilon_t$, with $\\phi_1 = -\\beta_1$")
 md_add("**R²:** ", round(arx1_s$r.squared, 4), " | **Adj R²:** ", round(arx1_s$adj.r.squared, 4))
 md_add("**Residual std error:** ", round(arx1_s$sigma, 3), " W")
-md_add("**phi1 (Ph.l1):** ", round(arx1_coef["Ph.l1","Estimate"],4),
-       " (p=", format(arx1_coef["Ph.l1","Pr(>|t|)"], digits=3), ")")
+md_add("**beta1 (coefficient on Ph.l1):** ", round(beta1_hat,4),
+       " (thus phi1 = ", round(phi1_hat,4), ")")
 md_add("**omega1 (Tdelta):** ", round(arx1_coef["Tdelta","Estimate"],4),
        " (p=", format(arx1_coef["Tdelta","Pr(>|t|)"], digits=3), ")")
 md_add("**omega2 (Gv):** ", round(arx1_coef["Gv","Estimate"],4),
        " (p=", format(arx1_coef["Gv","Pr(>|t|)"], digits=3), ")")
-md_add("**Improvement over OLS:** residual autocorrelation substantially reduced\n")
+md_add("**Improvement over 3.5:** residual autocorrelation is reduced, showing that lagged heating contributes importantly to the dynamics\n")
 
 # ---------------------------------------------------------------------------
 # 3.7  Model order selection: AIC and BIC vs. p = 1..10
@@ -423,22 +452,27 @@ aic_vec   <- numeric(max_order)
 bic_vec   <- numeric(max_order)
 
 for (p in seq_len(max_order)) {
-  regs      <- intersect(c(paste0("Ph.l", 1:p),
-                           paste0("Tdelta.l", 0:(p-1)),
-                           paste0("Gv.l",     0:(p-1))), names(box))
-  fit_p <- lm(as.formula(paste("Ph ~", paste(regs, collapse = " + "), "- 1")), data = train)
+  fit_p <- lm(build_arx_formula(p = p, data_names = names(box)), data = train)
   aic_vec[p] <- AIC(fit_p)
   bic_vec[p] <- BIC(fit_p)
 }
 
 ic_df <- data.frame(Order = 1:max_order, AIC = round(aic_vec, 2), BIC = round(bic_vec, 2))
 write.csv(ic_df, "output/tables/q3_37_aic_bic.csv", row.names = FALSE)
-print(xtable(ic_df,
-             caption = "AIC and BIC for ARX models of order $p = 1, \\ldots, 10$ (3.7).",
-             label   = "tab:ic", digits = c(0, 0, 2, 2)),
-      booktabs = TRUE, include.rownames = FALSE,
-      sanitize.text.function = identity,
-      file = "report/tables/q3_37_ic.tex", caption.placement = "top")
+
+print(
+  xtable(
+    ic_df,
+    caption = "AIC and BIC for no-intercept ARX models of order $p = 1, \\ldots, 10$ (3.7).",
+    label   = "tab:ic",
+    digits  = c(0, 0, 2, 2)
+  ),
+  booktabs = TRUE,
+  include.rownames = FALSE,
+  sanitize.text.function = identity,
+  file = "report/tables/q3_37_ic.tex",
+  caption.placement = "top"
+)
 
 pdf("report/figures/q3_37_aic_bic.pdf", width = FW, height = FH_S)
 par(mar = c(4.5, 4.5, 2, 1))
@@ -449,18 +483,16 @@ plot(1:max_order, aic_vec, type = "b", lwd = LWD, pch = 16, col = COL_AIC,
      main = "AIC and BIC vs. ARX model order")
 lines(1:max_order, bic_vec, type = "b", lwd = LWD, pch = 16, col = COL_BIC, lty = 2)
 abline(v = which.min(aic_vec), col = COL_AIC, lty = 3, lwd = 1.5)
-abline(v = which.min(bic_vec), col = COL_BIC,  lty = 3, lwd = 1.5)
+abline(v = which.min(bic_vec), col = COL_BIC, lty = 3, lwd = 1.5)
 legend("topright", c("AIC", "BIC"), col = c(COL_AIC, COL_BIC),
        lty = 1:2, lwd = LWD, pch = 16, bty = "n")
 grid()
 dev.off()
 
-cat("AIC minimum at order:", which.min(aic_vec), "\n")
-cat("BIC minimum at order:", which.min(bic_vec), "\n")
-
 md_add("## 3.7 Model Order Selection (AIC / BIC)")
 md_add("**Figure:** `report/figures/q3_37_aic_bic.pdf`")
 md_add("**Table:** `report/tables/q3_37_ic.tex`")
+md_add("**All ARX models were fitted without intercept to match the assignment specification.**")
 md_add("**Best order by AIC:** ", which.min(aic_vec), " (AIC = ", round(min(aic_vec),2), ")")
 md_add("**Best order by BIC:** ", which.min(bic_vec), " (BIC = ", round(min(bic_vec),2), ")")
 md_add("**AIC values (p=1..10):** ", paste(round(aic_vec,1), collapse=", "))
@@ -470,25 +502,31 @@ md_add("**BIC values (p=1..10):** ", paste(round(bic_vec,1), collapse=", "), "\n
 # 3.8  One-step RMSE on test set vs. model order
 # ---------------------------------------------------------------------------
 rmse_vec <- numeric(max_order)
+
 for (p in seq_len(max_order)) {
-  regs      <- intersect(c(paste0("Ph.l", 1:p),
-                           paste0("Tdelta.l", 0:(p-1)),
-                           paste0("Gv.l",     0:(p-1))), names(box))
-  fit_p <- lm(as.formula(paste("Ph ~", paste(regs, collapse = " + "), "- 1")), data = train)
+  fit_p     <- lm(build_arx_formula(p = p, data_names = names(box)), data = train)
   pred_test <- predict(fit_p, newdata = test)
-  resid_test  <- test$Ph - pred_test
-  stopifnot(length(resid_test) == 64)            # guard: assignment specifies 1/64
-  rmse_vec[p] <- sqrt(sum(resid_test^2) / 64)
+  resid_test <- test$Ph - pred_test
+  stopifnot(length(resid_test) == 64)
+  rmse_vec[p] <- sqrt(mean(resid_test^2))
 }
 
 rmse_df <- data.frame(Order = 1:max_order, RMSE = round(rmse_vec, 4))
 write.csv(rmse_df, "output/tables/q3_38_rmse.csv", row.names = FALSE)
-print(xtable(rmse_df,
-             caption = "One-step RMSE (W) on the test set for ARX models of order $p = 1, \\ldots, 10$ (3.8).",
-             label   = "tab:rmse", digits = c(0, 0, 4)),
-      booktabs = TRUE, include.rownames = FALSE,
-      sanitize.text.function = identity,
-      file = "report/tables/q3_38_rmse.tex", caption.placement = "top")
+
+print(
+  xtable(
+    rmse_df,
+    caption = "One-step RMSE (W) on the test set for no-intercept ARX models of order $p = 1, \\ldots, 10$ (3.8).",
+    label   = "tab:rmse",
+    digits  = c(0, 0, 4)
+  ),
+  booktabs = TRUE,
+  include.rownames = FALSE,
+  sanitize.text.function = identity,
+  file = "report/tables/q3_38_rmse.tex",
+  caption.placement = "top"
+)
 
 pdf("report/figures/q3_38_rmse.pdf", width = FW, height = FH_S)
 par(mar = c(4.5, 4.5, 2, 1))
@@ -501,43 +539,54 @@ legend("topright", paste0("Min at p = ", which.min(rmse_vec)),
 grid()
 dev.off()
 
-cat("RMSE minimum at order:", which.min(rmse_vec), "\n")
-
 md_add("## 3.8 Test-Set RMSE vs. Model Order")
 md_add("**Figure:** `report/figures/q3_38_rmse.pdf`")
 md_add("**Table:** `report/tables/q3_38_rmse.tex`")
 md_add("**Best order by RMSE:** ", which.min(rmse_vec), " (RMSE = ", round(min(rmse_vec),4), " W)")
+md_add("**All RMSE comparisons are based on no-intercept ARX models.**")
 md_add("**RMSE values (p=1..10):** ", paste(round(rmse_vec,3), collapse=", "), "\n")
 
 # ---------------------------------------------------------------------------
 # 3.9  Multi-step simulation over the full period
 # ---------------------------------------------------------------------------
-# p_best defaults to BIC-selected order — change manually if 3.7/3.8 suggest otherwise
 p_best <- which.min(bic_vec)
 cat("\nUsing ARX(", p_best, ") for multi-step simulation.\n")
 
-regs_best <- intersect(c(paste0("Ph.l", 1:p_best),
-                         paste0("Tdelta.l", 0:(p_best-1)),
-                         paste0("Gv.l",     0:(p_best-1))), names(box))
-fit_best <- lm(as.formula(paste("Ph ~", paste(regs_best, collapse = " + "), "- 1")), data = train)
+regs_best <- intersect(
+  c(
+    paste0("Ph.l", 1:p_best),
+    paste0("Tdelta.l", 0:(p_best-1)),
+    paste0("Gv.l", 0:(p_best-1))
+  ),
+  names(box)
+)
+
+fit_best <- lm(build_arx_formula(p = p_best, data_names = names(box)), data = train)
 saveRDS(fit_best, paste0("output/models/q3_arx_order", p_best, ".rds"))
 
-save_coef_tex(fit_best,
-              file    = paste0("report/tables/q3_39_arx", p_best, "_coef.tex"),
-              caption = paste0("Coefficient estimates for the chosen ARX(", p_best, ") model."),
-              label   = paste0("tab:arx", p_best, "_coef"))
+save_coef_tex(
+  fit_best,
+  file    = paste0("report/tables/q3_39_arx", p_best, "_coef.tex"),
+  caption = paste0("Coefficient estimates for the chosen no-intercept ARX(", p_best, ") model."),
+  label   = paste0("tab:arx", p_best, "_coef")
+)
 
-# Iterative simulation: AR lags from simulated Ph, input lags from observed data
 coefs      <- coef(fit_best)
-ar_lags    <- grep("^Ph\\.l",      regs_best, value = TRUE)
+ar_lags    <- grep("^Ph\\.l", regs_best, value = TRUE)
 input_lags <- grep("^(Tdelta|Gv)", regs_best, value = TRUE)
-Ph_sim     <- box$Ph
+
+Ph_sim <- box$Ph
 
 for (t in seq(p_best + 1, nrow(box))) {
-  ar_part    <- sum(coefs[ar_lags] * sapply(ar_lags, function(nm)
-                  Ph_sim[t - as.integer(sub("Ph.l", "", nm))]))
+  ar_part <- sum(
+    coefs[ar_lags] * sapply(ar_lags, function(nm) {
+      Ph_sim[t - as.integer(sub("Ph.l", "", nm))]
+    })
+  )
+
   input_part <- sum(coefs[input_lags] * as.numeric(box[t, input_lags]))
-  Ph_sim[t]  <- ar_part + input_part
+
+  Ph_sim[t] <- ar_part + input_part
 }
 
 sim_df <- data.frame(tdate = box$tdate, Ph_obs = box$Ph, Ph_sim = Ph_sim)
@@ -549,7 +598,7 @@ pdf("report/figures/q3_39_multistep_simulation.pdf", width = FW, height = FH_S)
 par(mar = c(4.5, 4.5, 2, 1))
 plot(sim_df$tdate, sim_df$Ph_obs, type = "l", lwd = LWD, col = COL_OBS,
      ylab = expression(P[h]~(W)), xlab = "Time",
-     main = bquote("Multi-step simulation  \u2014  ARX(" * .(p_best) * ")"))
+     main = bquote("Multi-step simulation  —  ARX(" * .(p_best) * ")"))
 lines(sim_df$tdate, sim_df$Ph_sim, lwd = LWD, col = COL_FIT, lty = 2)
 abline(v = split_t, col = "gray40", lty = 3, lwd = 1.5)
 legend("topright",
