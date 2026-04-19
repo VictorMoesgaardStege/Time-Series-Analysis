@@ -590,10 +590,11 @@ save_plot_both("q3_39_multistep_simulation", width = FW, height = FH_S, plot_fun
        main = bquote("Multi-step simulation - ARX(" * .(p_best) * ")"))
   lines(sim_df$tdate, sim_df$Ph_sim, lwd = LWD, col = COL_FIT, lty = 2)
   abline(v = split_t, col = "gray40", lty = 3, lwd = 1.5)
-  legend("topright",
+  legend("topleft",
          c("Observed", "Simulated", "Train / test split"),
          col = c(COL_OBS, COL_FIT, "gray40"),
-         lty = c(1, 2, 3), lwd = c(LWD, LWD, 1.5), bty = "n")
+         lty = c(1, 2, 3), lwd = c(LWD, LWD, 1.5), bty = "n",
+         cex = 0.7)
   grid()
 })
 
