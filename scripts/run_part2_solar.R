@@ -24,7 +24,7 @@ results <- run_solar_part2(
   phi1 = -0.38,
   Phi1 = -0.94,
   mu = 5.72,
-  sigma2_eps = 0.222,
+  sigma2_eps = 0.222^2,
   h = 12,
   figure_dir = "report/figures",
   table_dir = "output/tables",
