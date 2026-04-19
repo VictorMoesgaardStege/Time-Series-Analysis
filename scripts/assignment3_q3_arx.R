@@ -357,7 +357,7 @@ plot_diagnostics <- function(fit, tdate, Tdelta, Gv) {
 # ---------------------------------------------------------------------------
 # 3.5  Linear regression: Ph = omega1*Tdelta + omega2*Gv + epsilon
 # ---------------------------------------------------------------------------
-fit_lm <- lm(Ph ~ Tdelta + Gv, data = train)
+fit_lm <- lm(Ph ~ Tdelta + Gv - 1, data = train)
 cat("\n--- 3.5 Linear regression ---\n"); print(summary(fit_lm))
 
 save_coef_tex(fit_lm,
@@ -387,7 +387,7 @@ md_add("**Residual CCF:** structure visible vs both inputs → transfer function
 # ---------------------------------------------------------------------------
 # 3.6  ARX(1): Ph = -phi1*Ph_{t-1} + omega1*Tdelta + omega2*Gv + epsilon
 # ---------------------------------------------------------------------------
-fit_arx1 <- lm(Ph ~ Ph.l1 + Tdelta + Gv, data = train)
+fit_arx1 <- lm(Ph ~ Ph.l1 + Tdelta + Gv - 1, data = train)
 cat("\n--- 3.6 ARX(1) ---\n"); print(summary(fit_arx1))
 
 save_coef_tex(fit_arx1,
@@ -426,7 +426,7 @@ for (p in seq_len(max_order)) {
   regs      <- intersect(c(paste0("Ph.l", 1:p),
                            paste0("Tdelta.l", 0:(p-1)),
                            paste0("Gv.l",     0:(p-1))), names(box))
-  fit_p     <- lm(as.formula(paste("Ph ~", paste(regs, collapse = " + "))), data = train)
+  fit_p <- lm(as.formula(paste("Ph ~", paste(regs, collapse = " + "), "- 1")), data = train)
   aic_vec[p] <- AIC(fit_p)
   bic_vec[p] <- BIC(fit_p)
 }
@@ -474,7 +474,7 @@ for (p in seq_len(max_order)) {
   regs      <- intersect(c(paste0("Ph.l", 1:p),
                            paste0("Tdelta.l", 0:(p-1)),
                            paste0("Gv.l",     0:(p-1))), names(box))
-  fit_p     <- lm(as.formula(paste("Ph ~", paste(regs, collapse = " + "))), data = train)
+  fit_p <- lm(as.formula(paste("Ph ~", paste(regs, collapse = " + "), "- 1")), data = train)
   pred_test <- predict(fit_p, newdata = test)
   resid_test  <- test$Ph - pred_test
   stopifnot(length(resid_test) == 64)            # guard: assignment specifies 1/64
@@ -519,7 +519,7 @@ cat("\nUsing ARX(", p_best, ") for multi-step simulation.\n")
 regs_best <- intersect(c(paste0("Ph.l", 1:p_best),
                          paste0("Tdelta.l", 0:(p_best-1)),
                          paste0("Gv.l",     0:(p_best-1))), names(box))
-fit_best  <- lm(as.formula(paste("Ph ~", paste(regs_best, collapse = " + "))), data = train)
+fit_best <- lm(as.formula(paste("Ph ~", paste(regs_best, collapse = " + "), "- 1")), data = train)
 saveRDS(fit_best, paste0("output/models/q3_arx_order", p_best, ".rds"))
 
 save_coef_tex(fit_best,
@@ -537,7 +537,7 @@ for (t in seq(p_best + 1, nrow(box))) {
   ar_part    <- sum(coefs[ar_lags] * sapply(ar_lags, function(nm)
                   Ph_sim[t - as.integer(sub("Ph.l", "", nm))]))
   input_part <- sum(coefs[input_lags] * as.numeric(box[t, input_lags]))
-  Ph_sim[t]  <- coefs["(Intercept)"] + ar_part + input_part
+  Ph_sim[t]  <- ar_part + input_part
 }
 
 sim_df <- data.frame(tdate = box$tdate, Ph_obs = box$Ph, Ph_sim = Ph_sim)
