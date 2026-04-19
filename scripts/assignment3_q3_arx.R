@@ -319,19 +319,19 @@ plot_diagnostics <- function(fit, tdate, Tdelta, Gv) {
 
   acf(res, lag.max = 24, main = "", ylab = "ACF", xlab = "")
   mtext("Lag", side = 1, line = 1.2, cex = par("cex.lab"))
-  mtext("(c) ACF plot", side = 1, line = 2.4, cex = label_cex)
+  mtext("(c) Residual ACF plot", side = 1, line = 2.4, cex = label_cex)
 
   pacf(res, lag.max = 24, main = "", ylab = "Partial ACF", xlab = "")
   mtext("Lag", side = 1, line = 1.5, cex = par("cex.lab"))
-  mtext("(d) PACF plot", side = 1, line = 2.8, cex = label_cex)
+  mtext("(d) Residual PACF plot", side = 1, line = 2.8, cex = label_cex)
 
   ccf(Tdelta, res, lag.max = 24, main = "", ylab = "CCF", xlab = "")
   mtext("Lag", side = 1, line = 1.5, cex = par("cex.lab"))
-  mtext("(e) CCF: Tdelta", side = 1, line = 2.8, cex = label_cex)
+  mtext("(e) Residual CCF: Tdelta", side = 1, line = 2.8, cex = label_cex)
 
   ccf(Gv, res, lag.max = 24, main = "", ylab = "CCF", xlab = "")
   mtext("Lag", side = 1, line = 1.5, cex = par("cex.lab"))
-  mtext("(f) CCF: Gv", side = 1, line = 2.8, cex = label_cex)
+  mtext("(f) Residual CCF: Gv", side = 1, line = 2.8, cex = label_cex)
 }
 
 # ---------------------------------------------------------------------------
