@@ -469,7 +469,7 @@ save_plot_both("q3_37_aic_bic", width = FW, height = FH_S, plot_fun = function()
   lines(1:max_order, bic_vec, type = "b", lwd = LWD, pch = 16, col = COL_BIC, lty = 2)
   abline(v = which.min(aic_vec), col = COL_AIC, lty = 3, lwd = 1.5)
   abline(v = which.min(bic_vec), col = COL_BIC, lty = 3, lwd = 1.5)
-  legend("topright", c("AIC", "BIC"), col = c(COL_AIC, COL_BIC),
+  legend("bottomleft", c("AIC", "BIC"), col = c(COL_AIC, COL_BIC),
          lty = 1:2, lwd = LWD, pch = 16, bty = "n")
   grid()
 })
