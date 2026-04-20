@@ -152,19 +152,53 @@ save_plot_both("q3_33_scatter", width = FW, height = FH_S, plot_fun = function()
 })
 
 save_plot_both("q3_33_acf_ccf", width = FW, height = FH_D, plot_fun = function() {
-  par(mfrow = c(2, 2), mar = c(4, 4.5, 2.2, 1))
+  par(mfrow = c(2, 2), mar = c(5, 4.5, 2, 1), cex.axis = 0.8, font.axis = 1)
 
-  acf(train$Ph, lag.max = 24, main = expression("ACF of " * P[h]))
+  n_eff <- sum(is.finite(train$Ph))
+  ci_val <- qnorm(0.975) / sqrt(n_eff)
+
+  acf_obj <- acf(train$Ph, lag.max = 24, plot = FALSE)
+  ylim_acf <- range(c(-ci_val, ci_val, acf_obj$acf)) + c(-0.02, 0.02)
+
+  pacf_obj <- pacf(train$Ph, lag.max = 24, plot = FALSE)
+  ylim_pacf <- range(c(-ci_val, ci_val, pacf_obj$acf)) + c(-0.02, 0.02)
+
+  acf(train$Ph,
+      lag.max = 24,
+      main = expression("ACF of " * P[h]),
+      xlim = c(1, 24),
+      ylim = ylim_acf,
+      xaxt = "n",
+      ci = 0,
+      pch = 16,
+      cex = 0.45)
+  abline(h = c(-ci_val, ci_val), col = "#1e7a99", lty = 2, lwd = 1)
+  axis(1, at = c(1, 5, 10, 15, 20), labels = c(1, 5, 10, 15, 20))
   grid()
-  pacf(train$Ph, lag.max = 24, main = expression("PACF of " * P[h]))
+
+  pacf(train$Ph,
+       lag.max = 24,
+       main = expression("PACF of " * P[h]),
+       xlim = c(1, 24),
+       ylim = ylim_pacf,
+       xaxt = "n",
+       ci = 0,
+
+       pch = 16,
+       cex = 0.45)
+  abline(h = c(-ci_val, ci_val), col = "#1e7a99", lty = 2, lwd = 1)
+  axis(1, at = c(1, 5, 10, 15, 20), labels = c(1, 5, 10, 15, 20))
   grid()
-  ccf(train$Tdelta, train$Ph, lag.max = 24,
+
+  ccf(train$Tdelta, train$Ph, lag.max = 24, 
       main = expression("CCF (raw): " * T[Delta] %->% P[h]), ylab = "CCF")
   grid()
+
   ccf(train$Gv, train$Ph, lag.max = 24,
       main = expression("CCF (raw): " * G[v] %->% P[h]), ylab = "CCF")
   grid()
 })
+
 
 md_add("## 3.3 Exploratory Analysis")
 md_add("**Figure A (scatter, PNG):** `", fig_path_png("q3_33_scatter"), "`")
@@ -279,10 +313,17 @@ md_add("**Comment:** pre-whitened CCF is a standard textbook identification idea
 # ---------------------------------------------------------------------------
 # Diagnostics plot helper
 # ---------------------------------------------------------------------------
-plot_diagnostics <- function(fit, tdate, Tdelta, Gv) {
+plot_diagnostics <- function(fit, data) {
+  mf <- model.frame(fit)
+  idx <- as.integer(rownames(mf))
+
+  tdate  <- data$tdate[idx]
+  Tdelta <- data$Tdelta[idx]
+  Gv     <- data$Gv[idx]
+
   res  <- residuals(fit)
   fitt <- fitted(fit)
-  obs  <- fitt + res
+  obs  <- model.response(mf)
 
   old_par <- par(no.readonly = TRUE)
   on.exit(par(old_par))
@@ -291,15 +332,16 @@ plot_diagnostics <- function(fit, tdate, Tdelta, Gv) {
     matrix(c(
       1, 1,
       2, 2,
-      3, 4,
-      5, 6
+      3, 3,
+      4, 5
     ), nrow = 4, byrow = TRUE),
     heights = c(2.1, 1.5, 1.5, 1.5)
   )
 
-  par(mar = c(4.2, 4.2, 0.8, 0.8), cex.lab = 0.5, cex.axis = 0.5)
-  label_cex <- 0.5
+  par(mar = c(4.6, 4.2, 0.8, 0.8), cex.lab = 0.7, cex.axis = 0.7)
+  label_cex <- 0.7
 
+  # (a) fitted vs observed
   plot(tdate, obs, type = "l", lwd = LWD, col = COL_OBS,
        ylab = expression(P[h] ~ (W)), xlab = "")
   lines(tdate, fitt, lwd = LWD, col = "forestgreen", lty = 2)
@@ -307,31 +349,45 @@ plot_diagnostics <- function(fit, tdate, Tdelta, Gv) {
          col = c(COL_OBS, "forestgreen"), lty = c(1, 2),
          lwd = LWD, bty = "n", cex = 0.8)
   grid()
-  mtext("Time", side = 1, line = 1.5, cex = par("cex.lab"))
-  mtext("(a) Fitted vs actual values", side = 1, line = 2.4, cex = label_cex)
+  mtext("Time", side = 1, line = 2.2, cex = par("cex.lab"))
+  mtext("(a) Fitted vs actual values", side = 1, line = 3.4, cex = label_cex)
 
+  # (b) residuals over time
   plot(tdate, res, type = "l", lwd = LWD, col = "black",
        ylab = "Residual (W)", xlab = "")
   abline(h = 0, col = "gray50", lwd = 1)
   grid()
-  mtext("Time", side = 1, line = 1.5, cex = par("cex.lab"))
-  mtext("(b) Residuals over time", side = 1, line = 2.4, cex = label_cex)
+  mtext("Time", side = 1, line = 2.2, cex = par("cex.lab"))
+  mtext("(b) Residuals over time", side = 1, line = 3.4, cex = label_cex)
 
-  acf(res, lag.max = 24, main = "", ylab = "ACF", xlab = "")
-  mtext("Lag", side = 1, line = 1.2, cex = par("cex.lab"))
-  mtext("(c) Residual ACF plot", side = 1, line = 2.4, cex = label_cex)
+  # (c) residual ACF
+  n_eff <- sum(is.finite(res))
+  ci_val <- qnorm(0.975) / sqrt(n_eff)
 
-  pacf(res, lag.max = 24, main = "", ylab = "Partial ACF", xlab = "")
-  mtext("Lag", side = 1, line = 1.5, cex = par("cex.lab"))
-  mtext("(d) Residual PACF plot", side = 1, line = 2.8, cex = label_cex)
+  acf(res,
+      lag.max = 24,
+      plot = TRUE,
+      main = "",
+      ylab = "ACF",
+      xlab = "",
+      xlim = c(1, 24),
+      xaxt = "n",
+      ci = 0)
 
+  abline(h = c(-ci_val, ci_val), col = "blue", lty = 2, lwd = 1)
+  axis(1, at = c(1, 5, 10, 15, 20), labels = c(1, 5, 10, 15, 20))
+  mtext("Lag", side = 1, line = 2.0, cex = par("cex.lab"))
+  mtext("(c) Residual ACF plot", side = 1, line = 3.2, cex = label_cex)
+
+  # (d) residual CCF: Tdelta
   ccf(Tdelta, res, lag.max = 24, main = "", ylab = "CCF", xlab = "")
-  mtext("Lag", side = 1, line = 1.5, cex = par("cex.lab"))
-  mtext("(e) Residual CCF: Tdelta", side = 1, line = 2.8, cex = label_cex)
+  mtext("Lag", side = 1, line = 2.0, cex = par("cex.lab"))
+  mtext("(d) Residual CCF: Tdelta", side = 1, line = 3.2, cex = label_cex)
 
+  # (e) residual CCF: Gv
   ccf(Gv, res, lag.max = 24, main = "", ylab = "CCF", xlab = "")
-  mtext("Lag", side = 1, line = 1.5, cex = par("cex.lab"))
-  mtext("(f) Residual CCF: Gv", side = 1, line = 2.8, cex = label_cex)
+  mtext("Lag", side = 1, line = 2.0, cex = par("cex.lab"))
+  mtext("(e) Residual CCF: Gv", side = 1, line = 3.2, cex = label_cex)
 }
 
 # ---------------------------------------------------------------------------
@@ -369,7 +425,7 @@ save_coef_tex(
 )
 
 save_plot_both("q3_35_lm_diagnostics", width = FW, height = FH_D, plot_fun = function() {
-  plot_diagnostics(fit_lm, train$tdate, train$Tdelta, train$Gv)
+  plot_diagnostics(fit_lm, train)
 })
 
 lm_s    <- summary(fit_lm)
@@ -403,8 +459,9 @@ save_coef_tex(
   label   = "tab:arx1_coef"
 )
 
+
 save_plot_both("q3_36_arx1_diagnostics", width = FW, height = FH_D, plot_fun = function() {
-  plot_diagnostics(fit_arx1, train$tdate, train$Tdelta, train$Gv)
+  plot_diagnostics(fit_arx1, train)
 })
 
 arx1_s    <- summary(fit_arx1)
